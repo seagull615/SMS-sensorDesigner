@@ -144,6 +144,54 @@
     <canvas id="chart" height="320"></canvas>
     <div class="note">그래프는 <b>log|g(b)|</b> 를 나타내며, 급격히 음의 무한대로 떨어지는 각 지점(점선)이 LP0,m 모드(m=1,2,3,...)의 근입니다. 이 방정식은 l=0 (방위각 차수 0) 계열만 다루므로, MMF 전체 모드(LP11, LP21 등)를 보려면 별도의 l차수 방정식이 필요합니다. b=0, b=1 근처는 U 또는 W가 0이 되어 K₀·K₁이 발산하므로 수치적으로 표시되지 않을 수 있습니다.</div>
   </div>
+
+  <div class="card">
+    <div class="label" style="font-size:11px;color:#7d8590;text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px;">SMF 입력광 정보 (여기 소스)</div>
+    <div class="inputs">
+      <div class="field">
+        <label for="smfNcInput">SMF 코어 굴절률 n_core</label>
+        <input type="number" id="smfNcInput" value="1.4504" step="0.0001">
+      </div>
+      <div class="field">
+        <label for="smfNgInput">SMF 클래딩 굴절률 n_clad</label>
+        <input type="number" id="smfNgInput" value="1.4447" step="0.0001">
+      </div>
+      <div class="field">
+        <label for="smfDiaInput">SMF 코어 직경 (um)</label>
+        <input type="number" id="smfDiaInput" value="8.2" step="0.1">
+      </div>
+    </div>
+    <div class="note">SMF 기본모드(LP01)를 여기 방정식으로 별도 계산해서, MMF에 launch될 때의 필드 프로파일로 사용합니다. 파장은 위 MMF 계산의 λ를 그대로 공유합니다.</div>
+  </div>
+
+  <div class="card">
+    <div class="label" style="font-size:11px;color:#7d8590;text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px;">빔 전파 시뮬레이션 (Multimode Interference / Self-Imaging)</div>
+    <div class="inputs" style="margin-bottom:10px;">
+      <div class="field">
+        <label for="lzInput">전파 거리 Lz (mm)</label>
+        <input type="number" id="lzInput" value="5" step="0.1">
+      </div>
+    </div>
+    <button id="propBtn">전파 계산</button>
+    <div class="note" id="propBusyNote" style="display:none; color:#5b9dff;">계산 중입니다 (해상도가 높아 수 초 걸릴 수 있어요)...</div>
+    <div class="note" style="margin-top:8px;">SMF 기본모드와 각 MMF 모드 필드의 overlap integral로 결합계수 Cₘ을 계산해 실제 여기 조건을 반영합니다: Cₘ = ∫ψ_SMF(r)·ψₘ(r)·r dr / √(∫ψₘ(r)²·r dr) (ψ_SMF는 전력 1로 정규화). ψ(r,z) = Σₘ Cₘ·ψₘ(r)·exp(iβₘz), βₘ = n_eff,m·k₀. 반경 표시 범위는 MMF 코어 반경의 8/5배로 고정됩니다.</div>
+
+    <div id="propResults" style="display:none; margin-top:16px;">
+      <div class="stats" style="margin-bottom:14px;">
+        <div class="stat"><div class="label">근사 자기결상 주기 Lπ (LP0,1↔LP0,2)</div><div class="value warn" id="lpival">-</div></div>
+        <div class="stat"><div class="label">총 결합 파워 Σ|Cₘ|²</div><div class="value" id="totalcplval">-</div></div>
+      </div>
+
+      <div class="label" style="font-size:11px;color:#7d8590;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;">모드별 결합계수</div>
+      <div id="cmTable" style="margin-bottom:14px;"></div>
+
+      <div class="label" style="font-size:11px;color:#7d8590;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;">모드별 파워비율 (%)</div>
+      <canvas id="cmBarChart" height="180" style="margin-bottom:18px;"></canvas>
+
+      <div class="label" style="font-size:11px;color:#7d8590;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;">강도 |ψ(r,z)|² 히트맵 (가로: z [mm], 세로: r [µm] 대칭 단면)</div>
+      <canvas id="heatmapCanvas" width="760" height="340" style="width:100%; height:auto; border-radius:8px; display:block;"></canvas>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -298,7 +346,10 @@ function computeLP01(nc, ng, lam_nm, dia_um) {
       const rootB = (lo + hi) / 2;
       const beta_sq_root = k0*k0 * (rootB*(nc*nc - ng*ng) + ng*ng);
       const neff = Math.sqrt(beta_sq_root) / k0;
-      roots.push({ b: rootB, neff: neff });
+      // U, W from normalized b (same relation as reference notebook: U=V*sqrt(1-b), W=V*sqrt(b))
+      const U = V * Math.sqrt(1 - rootB);
+      const W = V * Math.sqrt(rootB);
+      roots.push({ b: rootB, neff: neff, U: U, W: W });
     }
   }
 
@@ -308,11 +359,12 @@ function computeLP01(nc, ng, lam_nm, dia_um) {
 
   const NA = Math.sqrt(nc*nc - ng*ng);
 
-  return { bArr, loggArr, V, NA, roots };
+  return { bArr, loggArr, V, NA, roots, a, k0 };
 }
 
 // ---- Chart setup ----
 let chart = null;
+let lastResult = null; // most recent computeLP01() output, needed by propagation section
 const rootLinePlugin = {
   id: 'rootLine',
   afterDraw(c) {
@@ -401,6 +453,8 @@ function renderChart(result) {
 function runCalculation() {
   const errBox = document.getElementById('errBox');
   errBox.style.display = 'none';
+  document.getElementById('propResults').style.display = 'none';
+  propState = null;
 
   const nc = parseFloat(document.getElementById('ncInput').value);
   const ng = parseFloat(document.getElementById('ngInput').value);
@@ -424,6 +478,7 @@ function runCalculation() {
   }
 
   const result = computeLP01(nc, ng, lam_nm, dia_um);
+  lastResult = result;
 
   document.getElementById('vval').textContent = result.V.toFixed(4);
   document.getElementById('naval').textContent = result.NA.toFixed(4);
@@ -463,6 +518,326 @@ function runCalculation() {
 
   renderChart(result);
 }
+
+// ---- Beam propagation (multimode interference / self-imaging) ----
+let propState = null;
+
+function fieldProfile(r, U, W, a) {
+  if (r <= a) {
+    const j0U = bessj0(U);
+    if (Math.abs(j0U) < 1e-9) return 0;
+    return bessj0(U * r / a) / j0U;
+  } else {
+    const k0W = bessk0(W);
+    if (Math.abs(k0W) < 1e-9) return 0;
+    return bessk0(W * r / a) / k0W;
+  }
+}
+
+function colormap(v) {
+  v = Math.max(0, Math.min(1, v));
+  // turbo-like palette (dark purple -> blue -> green -> yellow -> orange -> red)
+  const stops = [
+    [48, 18, 59], [64, 74, 173], [30, 133, 216], [30, 180, 195], [56, 206, 133],
+    [143, 216, 78], [216, 200, 48], [247, 149, 33], [230, 76, 16], [157, 15, 3]
+  ];
+  const n = stops.length - 1;
+  const pos = v * n;
+  const i = Math.floor(pos);
+  const f = pos - i;
+  const c0 = stops[Math.min(i, n)];
+  const c1 = stops[Math.min(i + 1, n)];
+  return [
+    Math.round(c0[0] + (c1[0] - c0[0]) * f),
+    Math.round(c0[1] + (c1[1] - c0[1]) * f),
+    Math.round(c0[2] + (c1[2] - c0[2]) * f)
+  ];
+}
+
+function trapz(yArr, xArr) {
+  let s = 0;
+  for (let i = 0; i < xArr.length - 1; i++) {
+    s += 0.5 * (yArr[i] + yArr[i + 1]) * (xArr[i + 1] - xArr[i]);
+  }
+  return s;
+}
+
+function runPropagation() {
+  if (!lastResult || lastResult.roots.length === 0) {
+    alert('먼저 모드 계산을 실행해주세요 (발견된 근이 없습니다).');
+    return;
+  }
+  const Lz_mm = parseFloat(document.getElementById('lzInput').value);
+  if (isNaN(Lz_mm) || Lz_mm <= 0) {
+    alert('전파 거리를 올바르게 입력해주세요.');
+    return;
+  }
+
+  const smfNc = parseFloat(document.getElementById('smfNcInput').value);
+  const smfNg = parseFloat(document.getElementById('smfNgInput').value);
+  const smfDia = parseFloat(document.getElementById('smfDiaInput').value);
+  const lam_nm = parseFloat(document.getElementById('lamInput').value);
+  if ([smfNc, smfNg, smfDia].some(v => isNaN(v)) || smfNc <= smfNg || smfDia <= 0) {
+    alert('SMF 입력광 정보를 올바르게 입력해주세요 (n_core > n_clad, 직경 > 0).');
+    return;
+  }
+
+  const smfResult = computeLP01(smfNc, smfNg, lam_nm, smfDia);
+  if (smfResult.roots.length === 0) {
+    alert('SMF 조건에서 도파 모드를 찾지 못했습니다. 입력값을 확인해주세요.');
+    return;
+  }
+  const smfFund = smfResult.roots[0]; // fundamental (largest b)
+  const aSmf = smfResult.a;
+
+  const { roots, a, k0 } = lastResult;
+  const Lz = Lz_mm * 1e-3; // mm -> m
+  const rFactor = 8 / 5; // fixed: r-range = 8/5 x MMF core radius
+  const rMax = a * rFactor;
+
+  const Nr = 300, Nz = 500; // higher resolution (slower but matches reference quality)
+  const rArr = new Float64Array(Nr);
+  for (let i = 0; i < Nr; i++) rArr[i] = (i / (Nr - 1)) * rMax;
+  const zArr = new Float64Array(Nz);
+  for (let i = 0; i < Nz; i++) zArr[i] = (i / (Nz - 1)) * Lz;
+
+  const M = roots.length;
+  const psiTable = new Array(M);
+  const betaArr = new Float64Array(M);
+  for (let j = 0; j < M; j++) {
+    betaArr[j] = roots[j].neff * k0;
+    const arr = new Float64Array(Nr);
+    for (let i = 0; i < Nr; i++) arr[i] = fieldProfile(rArr[i], roots[j].U, roots[j].W, a);
+    psiTable[j] = arr;
+  }
+
+  // SMF fundamental mode field over the same radial grid
+  const psiSmfRaw = new Float64Array(Nr);
+  for (let i = 0; i < Nr; i++) psiSmfRaw[i] = fieldProfile(rArr[i], smfFund.U, smfFund.W, aSmf);
+  const rArrArr = Array.from(rArr);
+  const smfIntegrand = Array.from(psiSmfRaw).map((v, i) => v * v * rArrArr[i]);
+  const normSmf = trapz(smfIntegrand, rArrArr);
+  const psiSmf = Array.from(psiSmfRaw).map(v => v / Math.sqrt(normSmf));
+
+  // overlap-integral coupling coefficients C_m (physical excitation from SMF into each MMF mode)
+  const C_m = new Float64Array(M);
+  for (let j = 0; j < M; j++) {
+    const selfIntegrand = Array.from(psiTable[j]).map((v, i) => v * v * rArrArr[i]);
+    const normMode = trapz(selfIntegrand, rArrArr);
+    const crossIntegrand = psiSmf.map((v, i) => v * psiTable[j][i] * rArrArr[i]);
+    const overlap = trapz(crossIntegrand, rArrArr);
+    C_m[j] = overlap / Math.sqrt(normMode);
+  }
+
+  const IGrid = new Array(Nz);
+  let globalMax = 0;
+  for (let zi = 0; zi < Nz; zi++) {
+    const z = zArr[zi];
+    const row = new Float64Array(Nr);
+    for (let ri = 0; ri < Nr; ri++) {
+      let reSum = 0, imSum = 0;
+      for (let j = 0; j < M; j++) {
+        const phase = betaArr[j] * z;
+        const amp = C_m[j] * psiTable[j][ri];
+        reSum += amp * Math.cos(phase);
+        imSum += amp * Math.sin(phase);
+      }
+      const I = reSum * reSum + imSum * imSum;
+      row[ri] = I;
+      if (I > globalMax) globalMax = I;
+    }
+    IGrid[zi] = row;
+  }
+
+  propState = { rArr, zArr, betaArr, IGrid, globalMax, a, Lz, rMax, M };
+
+  if (M >= 2) {
+    const Lpi = Math.PI / Math.abs(betaArr[0] - betaArr[1]);
+    document.getElementById('lpival').textContent = (Lpi * 1e3).toFixed(4) + ' mm';
+  } else {
+    document.getElementById('lpival').textContent = '모드 2개 이상 필요';
+  }
+
+  let totalPower = 0;
+  for (let j = 0; j < M; j++) totalPower += C_m[j] * C_m[j];
+  document.getElementById('totalcplval').textContent = totalPower.toFixed(4);
+
+  const cmRows = roots.map((r, idx) => `
+      <tr>
+        <td style="padding:8px 10px;color:#f5f6f7;">LP0,${idx+1}</td>
+        <td style="padding:8px 10px;color:#d7dae0;">${C_m[idx].toFixed(5)}</td>
+        <td style="padding:8px 10px;color:#d7dae0;">${(C_m[idx]*C_m[idx]).toFixed(5)}</td>
+      </tr>`).join('');
+  document.getElementById('cmTable').innerHTML = `
+      <table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead>
+          <tr style="border-bottom:1px solid #262b35;">
+            <th style="text-align:left;padding:6px 10px;color:#7d8590;font-weight:500;">모드</th>
+            <th style="text-align:left;padding:6px 10px;color:#7d8590;font-weight:500;">Cₘ</th>
+            <th style="text-align:left;padding:6px 10px;color:#7d8590;font-weight:500;">|Cₘ|² (결합효율)</th>
+          </tr>
+        </thead>
+        <tbody>${cmRows}</tbody>
+      </table>`;
+
+  const modalRatioPercent = Array.from(C_m).map(c => (c * c / totalPower) * 100);
+  renderCmBarChart(modalRatioPercent);
+
+  document.getElementById('propResults').style.display = 'block';
+  drawHeatmap();
+}
+
+let cmBarChart = null;
+function renderCmBarChart(modalRatioPercent) {
+  const ctx = document.getElementById('cmBarChart').getContext('2d');
+  if (cmBarChart) cmBarChart.destroy();
+  const labels = modalRatioPercent.map((_, idx) => 'LP0,' + (idx + 1));
+  cmBarChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Power ratio (%)',
+        data: modalRatioPercent,
+        backgroundColor: 'rgba(91,157,255,0.65)',
+        borderColor: '#5b9dff',
+        borderWidth: 1,
+      }]
+    },
+    options: {
+      responsive: true,
+      animation: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { title: { display: true, text: 'LP0,m mode', color: '#9aa1ac' }, ticks: { color: '#7d8590' }, grid: { display: false } },
+        y: { title: { display: true, text: 'Power ratio (%)', color: '#9aa1ac' }, ticks: { color: '#7d8590' }, grid: { color: 'rgba(255,255,255,0.08)' }, beginAtZero: true }
+      }
+    }
+  });
+}
+
+function niceStep(range, targetCount) {
+  if (range <= 0) return 1;
+  const roughStep = range / targetCount;
+  const mag = Math.pow(10, Math.floor(Math.log10(roughStep)));
+  const norm = roughStep / mag; // 1..10
+  let niceNorm;
+  if (norm < 1.5) niceNorm = 1;
+  else if (norm < 3) niceNorm = 2;
+  else if (norm < 7) niceNorm = 5;
+  else niceNorm = 10;
+  return niceNorm * mag;
+}
+
+function drawHeatmap() {
+  const canvas = document.getElementById('heatmapCanvas');
+  const ctx = canvas.getContext('2d');
+  const totalW = canvas.width, totalH = canvas.height;
+
+  const marginLeft = 60, marginRight = 20, marginTop = 14, marginBottom = 40;
+  const plotW = totalW - marginLeft - marginRight;
+  const plotH = totalH - marginTop - marginBottom;
+
+  ctx.clearRect(0, 0, totalW, totalH);
+  ctx.fillStyle = '#0f1115';
+  ctx.fillRect(0, 0, totalW, totalH);
+
+  const Nz = propState.zArr.length, Nr = propState.rArr.length;
+
+  // render the heatmap data onto an offscreen canvas sized to the plot area
+  const off = document.createElement('canvas');
+  off.width = plotW;
+  off.height = plotH;
+  const offCtx = off.getContext('2d');
+  const imgData = offCtx.createImageData(plotW, plotH);
+
+  for (let px = 0; px < plotW; px++) {
+    const zi = Math.min(Nz - 1, Math.floor((px / plotW) * Nz));
+    const col = propState.IGrid[zi];
+    for (let py = 0; py < plotH; py++) {
+      const rFrac = Math.abs((py - plotH / 2) / (plotH / 2)); // 0 at center (r=0), 1 at edges (r=rMax)
+      const ri = Math.min(Nr - 1, Math.floor(rFrac * (Nr - 1)));
+      const I = col[ri];
+      const v = propState.globalMax > 0 ? Math.sqrt(I / propState.globalMax) : 0; // sqrt scaling for contrast (matches reference plot)
+      const [r, g, b] = colormap(v);
+      const idx = (py * plotW + px) * 4;
+      imgData.data[idx] = r; imgData.data[idx + 1] = g; imgData.data[idx + 2] = b; imgData.data[idx + 3] = 255;
+    }
+  }
+  offCtx.putImageData(imgData, 0, 0);
+  ctx.drawImage(off, marginLeft, marginTop);
+
+  // ---- axes ----
+  ctx.strokeStyle = '#333944';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(marginLeft, marginTop, plotW, plotH);
+
+  ctx.fillStyle = '#9aa1ac';
+  ctx.font = '11px -apple-system, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+
+  // x-axis ticks: z in mm, round (1/2/5 x 10^n) steps starting at 0
+  const zMaxMm = propState.Lz * 1e3;
+  const xStep = niceStep(zMaxMm, 6);
+  ctx.textAlign = 'center';
+  for (let zVal = 0; zVal <= zMaxMm + 1e-9; zVal += xStep) {
+    const frac = zVal / zMaxMm;
+    const xPix = marginLeft + frac * plotW;
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+    ctx.beginPath();
+    ctx.moveTo(xPix, marginTop);
+    ctx.lineTo(xPix, marginTop + plotH);
+    ctx.stroke();
+    const label = Math.abs(zVal) < 1e-9 ? '0' : (Number.isInteger(zVal) ? zVal.toFixed(0) : zVal.toFixed(1));
+    ctx.fillText(label, xPix, marginTop + plotH + 6);
+  }
+  ctx.textAlign = 'center';
+  ctx.fillText('z (mm)', marginLeft + plotW / 2, marginTop + plotH + 22);
+
+  // y-axis ticks: r in um, symmetric round steps around 0
+  const rMaxUm = propState.rMax * 1e6;
+  const yStep = niceStep(rMaxUm, 4);
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+  for (let rVal = 0; rVal <= rMaxUm + 1e-9; rVal += yStep) {
+    for (const sign of (rVal === 0 ? [1] : [1, -1])) {
+      const signedR = sign * rVal;
+      const frac = signedR / rMaxUm; // -1..1
+      const yPix = marginTop + plotH / 2 - frac * (plotH / 2);
+      ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+      ctx.beginPath();
+      ctx.moveTo(marginLeft, yPix);
+      ctx.lineTo(marginLeft + plotW, yPix);
+      ctx.stroke();
+      const label = Math.abs(signedR) < 1e-9 ? '0' : (Number.isInteger(signedR) ? signedR.toFixed(0) : signedR.toFixed(1));
+      ctx.fillText(label, marginLeft - 8, yPix);
+    }
+  }
+
+  ctx.save();
+  ctx.translate(14, marginTop + plotH / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('r (µm)', 0, 0);
+  ctx.restore();
+}
+
+document.getElementById('propBtn').addEventListener('click', () => {
+  const busyNote = document.getElementById('propBusyNote');
+  busyNote.style.display = 'block';
+  document.getElementById('propBtn').disabled = true;
+  // defer so the browser can paint the "계산 중" message before the heavy synchronous computation blocks the thread
+  setTimeout(() => {
+    try {
+      runPropagation();
+    } finally {
+      busyNote.style.display = 'none';
+      document.getElementById('propBtn').disabled = false;
+    }
+  }, 30);
+});
 
 document.getElementById('calcBtn').addEventListener('click', runCalculation);
 [document.getElementById('ncInput'), document.getElementById('ngInput'),
