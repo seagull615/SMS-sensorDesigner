@@ -130,6 +130,7 @@
 
   <div class="stats">
     <div class="stat"><div class="label">V parameter</div><div class="value" id="vval">-</div></div>
+    <div class="stat"><div class="label">NA (개구수)</div><div class="value" id="naval">-</div></div>
     <div class="stat"><div class="label">발견된 근 개수</div><div class="value accent" id="rootcountval">-</div></div>
     <div class="stat"><div class="label">단일모드?</div><div class="value" id="smval">-</div></div>
   </div>
@@ -301,7 +302,13 @@ function computeLP01(nc, ng, lam_nm, dia_um) {
     }
   }
 
-  return { bArr, loggArr, V, roots };
+  // sort so LP0,1 = largest b (highest confinement / fundamental mode),
+  // matching physical mode ordering (b decreases as mode order increases)
+  roots.sort((r1, r2) => r2.b - r1.b);
+
+  const NA = Math.sqrt(nc*nc - ng*ng);
+
+  return { bArr, loggArr, V, NA, roots };
 }
 
 // ---- Chart setup ----
@@ -419,6 +426,7 @@ function runCalculation() {
   const result = computeLP01(nc, ng, lam_nm, dia_um);
 
   document.getElementById('vval').textContent = result.V.toFixed(4);
+  document.getElementById('naval').textContent = result.NA.toFixed(4);
   document.getElementById('rootcountval').textContent = result.roots.length;
 
   const smEl = document.getElementById('smval');
