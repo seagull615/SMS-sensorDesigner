@@ -192,6 +192,35 @@
       <canvas id="heatmapCanvas" width="760" height="340" style="width:100%; height:auto; border-radius:8px; display:block;"></canvas>
     </div>
   </div>
+
+  <div class="card">
+    <div class="label" style="font-size:11px;color:#7d8590;text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px;">스펙트럴 응답 (파장 스윕)</div>
+    <div class="inputs" style="margin-bottom:10px;">
+      <div class="field">
+        <label for="lamStartInput">시작 파장 (nm)</label>
+        <input type="number" id="lamStartInput" value="1500" step="1">
+      </div>
+      <div class="field">
+        <label for="lamStopInput">끝 파장 (nm)</label>
+        <input type="number" id="lamStopInput" value="1600" step="1">
+      </div>
+      <div class="field">
+        <label for="lamPointsInput">포인트 수</label>
+        <input type="number" id="lamPointsInput" value="201" step="1">
+      </div>
+    </div>
+    <button id="spectrumBtn">스펙트럼 계산</button>
+    <div class="note" id="spectrumBusyNote" style="display:none; color:#5b9dff;">계산 중입니다 (파장 포인트마다 모드를 다시 풀어서 시간이 좀 걸릴 수 있어요)...</div>
+    <div class="note" style="margin-top:8px;">위 "빔 전파 시뮬레이션"의 전파 거리 <b>Lz</b>를 MMF 구간 길이로 그대로 사용합니다. 각 파장에서 SMF→MMF 결합계수 Cₘ을 다시 계산하고 z=Lz까지 전파시킨 뒤, 기준 SMF 모드로 재결합될 때의 삽입손실을 구합니다: Ls = 10·log₁₀( |∫E(r,Lz)·ψ_SMF*(r)·r dr|² / (∫|E(r,Lz)|²·r dr · ∫|ψ_SMF(r)|²·r dr) ). 굴절률은 파장에 무관한 상수로 가정합니다 (재료 분산 미포함).</div>
+
+    <div id="spectrumResults" style="display:none; margin-top:16px;">
+      <div class="stats" style="margin-bottom:14px;">
+        <div class="stat"><div class="label">피크 파장</div><div class="value" id="peaklamval">-</div></div>
+        <div class="stat"><div class="label">피크 손실</div><div class="value" id="peaklossval">-</div></div>
+      </div>
+      <canvas id="spectrumChart" height="260"></canvas>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -835,6 +864,204 @@ document.getElementById('propBtn').addEventListener('click', () => {
     } finally {
       busyNote.style.display = 'none';
       document.getElementById('propBtn').disabled = false;
+    }
+  }, 30);
+});
+
+// ---- Spectral response (wavelength sweep of insertion loss) ----
+// 특정 파장 lam_nm, MMF 전파거리 Lz(m)에서 SMF->MMF->SMF 재결합 삽입손실(dB)을 계산.
+// runPropagation()과 동일한 오버랩 적분/결합계수 로직을 재사용하되, 단일 z 지점만 계산.
+function computeInsertionLossAtWavelength(lam_nm, Lz) {
+  const mmfNc = parseFloat(document.getElementById('ncInput').value);
+  const mmfNg = parseFloat(document.getElementById('ngInput').value);
+  const mmfDia = parseFloat(document.getElementById('diaInput').value);
+  const smfNc = parseFloat(document.getElementById('smfNcInput').value);
+  const smfNg = parseFloat(document.getElementById('smfNgInput').value);
+  const smfDia = parseFloat(document.getElementById('smfDiaInput').value);
+
+  const mmfResult = computeLP01(mmfNc, mmfNg, lam_nm, mmfDia);
+  const smfResult = computeLP01(smfNc, smfNg, lam_nm, smfDia);
+  if (mmfResult.roots.length === 0 || smfResult.roots.length === 0) return null;
+
+  const smfFund = smfResult.roots[0];
+  const aSmf = smfResult.a;
+  const { roots, a, k0 } = mmfResult;
+  const M = roots.length;
+
+  const rFactor = 8 / 5; // MMF 코어 반경의 8/5배 (히트맵과 동일 규칙)
+  const rMax = a * rFactor;
+  const Nr = 300;
+  const rArr = new Float64Array(Nr);
+  for (let i = 0; i < Nr; i++) rArr[i] = (i / (Nr - 1)) * rMax;
+  const rArrArr = Array.from(rArr);
+
+  const psiTable = new Array(M);
+  const betaArr = new Float64Array(M);
+  for (let j = 0; j < M; j++) {
+    betaArr[j] = roots[j].neff * k0;
+    const arr = new Float64Array(Nr);
+    for (let i = 0; i < Nr; i++) arr[i] = fieldProfile(rArr[i], roots[j].U, roots[j].W, a);
+    psiTable[j] = arr;
+  }
+
+  // SMF 기본모드 (전력 1로 정규화)
+  const psiSmfRaw = new Float64Array(Nr);
+  for (let i = 0; i < Nr; i++) psiSmfRaw[i] = fieldProfile(rArr[i], smfFund.U, smfFund.W, aSmf);
+  const smfIntegrand = Array.from(psiSmfRaw).map((v, i) => v * v * rArrArr[i]);
+  const normSmf = trapz(smfIntegrand, rArrArr);
+  if (normSmf <= 0) return null;
+  const psiSmf = Array.from(psiSmfRaw).map(v => v / Math.sqrt(normSmf));
+
+  // SMF -> MMF 결합계수 Cₘ
+  const C_m = new Float64Array(M);
+  for (let j = 0; j < M; j++) {
+    const selfIntegrand = Array.from(psiTable[j]).map((v, i) => v * v * rArrArr[i]);
+    const normMode = trapz(selfIntegrand, rArrArr);
+    if (normMode <= 0) { C_m[j] = 0; continue; }
+    const crossIntegrand = psiSmf.map((v, i) => v * psiTable[j][i] * rArrArr[i]);
+    const overlap = trapz(crossIntegrand, rArrArr);
+    C_m[j] = overlap / Math.sqrt(normMode);
+  }
+
+  // z = Lz 지점에서의 복소 필드 E(r,Lz) = Σ Cₘ·ψₘ(r)·exp(iβₘLz)
+  const reArr = new Float64Array(Nr);
+  const imArr = new Float64Array(Nr);
+  for (let ri = 0; ri < Nr; ri++) {
+    let reSum = 0, imSum = 0;
+    for (let j = 0; j < M; j++) {
+      const phase = betaArr[j] * Lz;
+      const amp = C_m[j] * psiTable[j][ri];
+      reSum += amp * Math.cos(phase);
+      imSum += amp * Math.sin(phase);
+    }
+    reArr[ri] = reSum;
+    imArr[ri] = imSum;
+  }
+
+  // 기준 SMF 모드로 재결합될 때의 삽입손실 (오버랩 파워 비율, dB)
+  const crossRe = trapz(Array.from(reArr).map((v, i) => v * psiSmf[i] * rArrArr[i]), rArrArr);
+  const crossIm = trapz(Array.from(imArr).map((v, i) => v * psiSmf[i] * rArrArr[i]), rArrArr);
+  const numerator = crossRe * crossRe + crossIm * crossIm;
+
+  const powerE = trapz(Array.from(reArr).map((v, i) => (v * v + imArr[i] * imArr[i]) * rArrArr[i]), rArrArr);
+  const powerSmf = trapz(Array.from(psiSmf).map((v, i) => v * v * rArrArr[i]), rArrArr); // ~1
+
+  const denominator = powerE * powerSmf;
+  if (denominator <= 0) return null;
+  return 10 * Math.log10(numerator / denominator);
+}
+
+let spectrumChart = null;
+function renderSpectrumChart(wavelengths, losses) {
+  const ctx = document.getElementById('spectrumChart').getContext('2d');
+  if (spectrumChart) spectrumChart.destroy();
+  spectrumChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: wavelengths,
+      datasets: [{
+        label: 'Insertion Loss (dB)',
+        data: losses,
+        borderColor: '#5b9dff',
+        backgroundColor: 'rgba(91,157,255,0.08)',
+        borderWidth: 1.75,
+        pointRadius: 0,
+        tension: 0.15,
+        spanGaps: false,
+        fill: true,
+      }]
+    },
+    options: {
+      responsive: true,
+      animation: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1c2029',
+          titleColor: '#e6e8eb',
+          bodyColor: '#e6e8eb',
+          borderColor: '#333944',
+          borderWidth: 1,
+          callbacks: {
+            title: (items) => 'λ = ' + Number(items[0].label).toFixed(2) + ' nm',
+            label: (item) => 'Loss = ' + (item.raw === null ? 'undefined' : item.raw.toFixed(3)) + ' dB'
+          }
+        }
+      },
+      scales: {
+        x: {
+          type: 'linear', min: wavelengths[0], max: wavelengths[wavelengths.length - 1],
+          title: { display: true, text: 'Wavelength (nm)', color: '#9aa1ac' },
+          ticks: { color: '#7d8590' },
+          grid: { color: 'rgba(255,255,255,0.05)' }
+        },
+        y: {
+          title: { display: true, text: 'Insertion Loss (dB)', color: '#9aa1ac' },
+          ticks: { color: '#7d8590' },
+          grid: { color: 'rgba(255,255,255,0.05)' }
+        }
+      }
+    }
+  });
+}
+
+function runSpectrum() {
+  if (!lastResult || lastResult.roots.length === 0) {
+    alert('먼저 위쪽 MMF 모드 계산을 실행해주세요 (발견된 근이 없습니다).');
+    return;
+  }
+
+  const lamStart = parseFloat(document.getElementById('lamStartInput').value);
+  const lamStop = parseFloat(document.getElementById('lamStopInput').value);
+  const nPoints = parseInt(document.getElementById('lamPointsInput').value, 10);
+  const Lz_mm = parseFloat(document.getElementById('lzInput').value);
+
+  if ([lamStart, lamStop, nPoints, Lz_mm].some(v => isNaN(v)) ||
+      nPoints < 2 || lamStart <= 0 || lamStop <= lamStart || Lz_mm <= 0) {
+    alert('스펙트럼 파라미터를 올바르게 입력해주세요 (0 < 시작파장 < 끝파장, 포인트 수 ≥ 2, Lz > 0).');
+    return;
+  }
+
+  const Lz = Lz_mm * 1e-3; // mm -> m
+
+  const wavelengths = [];
+  const losses = [];
+  for (let i = 0; i < nPoints; i++) {
+    const lam_nm = lamStart + (lamStop - lamStart) * i / (nPoints - 1);
+    const Ls = computeInsertionLossAtWavelength(lam_nm, Lz);
+    wavelengths.push(lam_nm);
+    losses.push(Ls);
+  }
+
+  let peakIdx = -1;
+  for (let i = 0; i < losses.length; i++) {
+    if (losses[i] === null) continue;
+    if (peakIdx === -1 || losses[i] > losses[peakIdx]) peakIdx = i;
+  }
+
+  if (peakIdx === -1) {
+    alert('선택한 파장 범위에서 유효한 결과를 얻지 못했습니다. 굴절률/직경 조합을 확인해주세요.');
+    return;
+  }
+
+  document.getElementById('peaklamval').textContent = wavelengths[peakIdx].toFixed(1) + ' nm';
+  document.getElementById('peaklossval').textContent = losses[peakIdx].toFixed(3) + ' dB';
+
+  renderSpectrumChart(wavelengths, losses);
+  document.getElementById('spectrumResults').style.display = 'block';
+}
+
+document.getElementById('spectrumBtn').addEventListener('click', () => {
+  const busyNote = document.getElementById('spectrumBusyNote');
+  busyNote.style.display = 'block';
+  document.getElementById('spectrumBtn').disabled = true;
+  setTimeout(() => {
+    try {
+      runSpectrum();
+    } finally {
+      busyNote.style.display = 'none';
+      document.getElementById('spectrumBtn').disabled = false;
     }
   }, 30);
 });
