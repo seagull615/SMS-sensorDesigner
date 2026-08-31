@@ -10,16 +10,16 @@
   body {
     margin: 0;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    background: #0f1115;
-    color: #e6e8eb;
+    background: #f5f6f8;
+    color: #1a1d23;
     padding: 24px;
   }
   .wrap { max-width: 860px; margin: 0 auto; }
-  h1 { font-size: 18px; font-weight: 600; margin: 0 0 4px 0; color: #f5f6f7; }
-  .sub { color: #9aa1ac; font-size: 13px; margin-bottom: 18px; }
+  h1 { font-size: 18px; font-weight: 600; margin: 0 0 4px 0; color: #14171c; }
+  .sub { color: #5b6270; font-size: 13px; margin-bottom: 18px; }
   .card {
-    background: #171a21;
-    border: 1px solid #262b35;
+    background: #ffffff;
+    border: 1px solid #dde1e7;
     border-radius: 12px;
     padding: 18px;
     margin-bottom: 16px;
@@ -33,18 +33,18 @@
   .field label {
     display: block;
     font-size: 11px;
-    color: #7d8590;
+    color: #6b7280;
     text-transform: uppercase;
     letter-spacing: .04em;
     margin-bottom: 6px;
   }
   .field input {
     width: 100%;
-    background: #0f1115;
-    border: 1px solid #333944;
+    background: #f5f6f8;
+    border: 1px solid #ccd1d9;
     border-radius: 8px;
     padding: 9px 10px;
-    color: #f5f6f7;
+    color: #14171c;
     font-size: 14px;
     font-family: inherit;
     outline: none;
@@ -52,7 +52,7 @@
   .field input:focus { border-color: #5b9dff; }
   button#calcBtn {
     background: #5b9dff;
-    color: #0f1115;
+    color: #f5f6f8;
     border: none;
     border-radius: 8px;
     padding: 10px 22px;
@@ -70,28 +70,28 @@
     margin-bottom: 16px;
   }
   .stat {
-    background: #171a21;
-    border: 1px solid #262b35;
+    background: #ffffff;
+    border: 1px solid #dde1e7;
     border-radius: 10px;
     padding: 12px 14px;
   }
-  .stat .label { font-size: 11px; color: #7d8590; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 4px; }
-  .stat .value { font-size: 17px; font-weight: 600; color: #f5f6f7; }
+  .stat .label { font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 4px; }
+  .stat .value { font-size: 17px; font-weight: 600; color: #14171c; }
   .stat .value.accent { color: #ff6b6b; }
   .stat .value.warn { color: #f0b429; }
   canvas { width: 100% !important; }
   .note {
     font-size: 12.5px;
-    color: #9aa1ac;
+    color: #5b6270;
     line-height: 1.6;
     margin-top: 10px;
   }
-  .note b { color: #d7dae0; }
+  .note b { color: #2a2e37; }
   #errBox {
     display: none;
     background: rgba(255,107,107,0.1);
     border: 1px solid rgba(255,107,107,0.4);
-    color: #ff9b9b;
+    color: #c0392b;
     border-radius: 8px;
     padding: 10px 14px;
     font-size: 13px;
@@ -136,7 +136,7 @@
   </div>
 
   <div class="card">
-    <div class="label" style="font-size:11px;color:#7d8590;text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px;">LP0,m 모드 목록</div>
+    <div class="label" style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px;">LP0,m 모드 목록</div>
     <div id="rootsTable"></div>
   </div>
 
@@ -146,7 +146,7 @@
   </div>
 
   <div class="card">
-    <div class="label" style="font-size:11px;color:#7d8590;text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px;">SMF 입력광 정보 (여기 소스)</div>
+    <div class="label" style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px;">SMF 입력광 정보 (여기 소스)</div>
     <div class="inputs">
       <div class="field">
         <label for="smfNcInput">SMF 코어 굴절률 n_core</label>
@@ -165,7 +165,7 @@
   </div>
 
   <div class="card">
-    <div class="label" style="font-size:11px;color:#7d8590;text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px;">빔 전파 시뮬레이션 (Multimode Interference / Self-Imaging)</div>
+    <div class="label" style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px;">빔 전파 시뮬레이션 (Multimode Interference / Self-Imaging)</div>
     <div class="inputs" style="margin-bottom:10px;">
       <div class="field">
         <label for="lzInput">전파 거리 Lz (mm)</label>
@@ -182,19 +182,19 @@
         <div class="stat"><div class="label">총 결합 파워 Σ|Cₘ|²</div><div class="value" id="totalcplval">-</div></div>
       </div>
 
-      <div class="label" style="font-size:11px;color:#7d8590;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;">모드별 결합계수</div>
+      <div class="label" style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;">모드별 결합계수</div>
       <div id="cmTable" style="margin-bottom:14px;"></div>
 
-      <div class="label" style="font-size:11px;color:#7d8590;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;">모드별 파워비율 (%)</div>
+      <div class="label" style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;">모드별 파워비율 (%)</div>
       <canvas id="cmBarChart" height="180" style="margin-bottom:18px;"></canvas>
 
-      <div class="label" style="font-size:11px;color:#7d8590;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;">강도 |ψ(r,z)|² 히트맵 (가로: z [mm], 세로: r [µm] 대칭 단면)</div>
+      <div class="label" style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;">강도 |ψ(r,z)|² 히트맵 (가로: z [mm], 세로: r [µm] 대칭 단면)</div>
       <canvas id="heatmapCanvas" width="760" height="340" style="width:100%; height:auto; border-radius:8px; display:block;"></canvas>
     </div>
   </div>
 
   <div class="card">
-    <div class="label" style="font-size:11px;color:#7d8590;text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px;">스펙트럴 응답 (파장 스윕)</div>
+    <div class="label" style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px;">스펙트럴 응답 (파장 스윕)</div>
     <div class="inputs" style="margin-bottom:10px;">
       <div class="field">
         <label for="lamStartInput">시작 파장 (nm)</label>
@@ -448,10 +448,10 @@ function renderChart(result) {
       plugins: {
         legend: { display: false },
         tooltip: {
-          backgroundColor: '#1c2029',
-          titleColor: '#e6e8eb',
-          bodyColor: '#e6e8eb',
-          borderColor: '#333944',
+          backgroundColor: '#ffffff',
+          titleColor: '#1a1d23',
+          bodyColor: '#1a1d23',
+          borderColor: '#ccd1d9',
           borderWidth: 1,
           callbacks: {
             title: (items) => 'b = ' + Number(items[0].label).toFixed(4),
@@ -462,14 +462,14 @@ function renderChart(result) {
       scales: {
         x: {
           type: 'linear', min: 0, max: 1,
-          title: { display: true, text: 'b (normalized propagation constant)', color: '#9aa1ac' },
-          ticks: { color: '#7d8590', maxTicksLimit: 11 },
-          grid: { color: 'rgba(255,255,255,0.05)' }
+          title: { display: true, text: 'b (normalized propagation constant)', color: '#5b6270' },
+          ticks: { color: '#6b7280', maxTicksLimit: 11 },
+          grid: { color: 'rgba(0,0,0,0.08)' }
         },
         y: {
-          title: { display: true, text: 'log|g(b)|', color: '#9aa1ac' },
-          ticks: { color: '#7d8590' },
-          grid: { color: 'rgba(255,255,255,0.05)' }
+          title: { display: true, text: 'log|g(b)|', color: '#5b6270' },
+          ticks: { color: '#6b7280' },
+          grid: { color: 'rgba(0,0,0,0.08)' }
         }
       }
     },
@@ -528,17 +528,17 @@ function runCalculation() {
   } else {
     let rows = result.roots.map((r, idx) => `
       <tr>
-        <td style="padding:8px 10px;color:#f5f6f7;">LP0,${idx+1}</td>
-        <td style="padding:8px 10px;color:#d7dae0;">${r.b.toFixed(5)}</td>
-        <td style="padding:8px 10px;color:#d7dae0;">${r.neff.toFixed(6)}</td>
+        <td style="padding:8px 10px;color:#14171c;">LP0,${idx+1}</td>
+        <td style="padding:8px 10px;color:#2a2e37;">${r.b.toFixed(5)}</td>
+        <td style="padding:8px 10px;color:#2a2e37;">${r.neff.toFixed(6)}</td>
       </tr>`).join('');
     tableDiv.innerHTML = `
       <table style="width:100%;border-collapse:collapse;font-size:13px;">
         <thead>
-          <tr style="border-bottom:1px solid #262b35;">
-            <th style="text-align:left;padding:6px 10px;color:#7d8590;font-weight:500;">모드</th>
-            <th style="text-align:left;padding:6px 10px;color:#7d8590;font-weight:500;">b (근)</th>
-            <th style="text-align:left;padding:6px 10px;color:#7d8590;font-weight:500;">n_eff</th>
+          <tr style="border-bottom:1px solid #dde1e7;">
+            <th style="text-align:left;padding:6px 10px;color:#6b7280;font-weight:500;">모드</th>
+            <th style="text-align:left;padding:6px 10px;color:#6b7280;font-weight:500;">b (근)</th>
+            <th style="text-align:left;padding:6px 10px;color:#6b7280;font-weight:500;">n_eff</th>
           </tr>
         </thead>
         <tbody>${rows}</tbody>
@@ -693,17 +693,17 @@ function runPropagation() {
 
   const cmRows = roots.map((r, idx) => `
       <tr>
-        <td style="padding:8px 10px;color:#f5f6f7;">LP0,${idx+1}</td>
-        <td style="padding:8px 10px;color:#d7dae0;">${C_m[idx].toFixed(5)}</td>
-        <td style="padding:8px 10px;color:#d7dae0;">${(C_m[idx]*C_m[idx]).toFixed(5)}</td>
+        <td style="padding:8px 10px;color:#14171c;">LP0,${idx+1}</td>
+        <td style="padding:8px 10px;color:#2a2e37;">${C_m[idx].toFixed(5)}</td>
+        <td style="padding:8px 10px;color:#2a2e37;">${(C_m[idx]*C_m[idx]).toFixed(5)}</td>
       </tr>`).join('');
   document.getElementById('cmTable').innerHTML = `
       <table style="width:100%;border-collapse:collapse;font-size:13px;">
         <thead>
-          <tr style="border-bottom:1px solid #262b35;">
-            <th style="text-align:left;padding:6px 10px;color:#7d8590;font-weight:500;">모드</th>
-            <th style="text-align:left;padding:6px 10px;color:#7d8590;font-weight:500;">Cₘ</th>
-            <th style="text-align:left;padding:6px 10px;color:#7d8590;font-weight:500;">|Cₘ|² (결합효율)</th>
+          <tr style="border-bottom:1px solid #dde1e7;">
+            <th style="text-align:left;padding:6px 10px;color:#6b7280;font-weight:500;">모드</th>
+            <th style="text-align:left;padding:6px 10px;color:#6b7280;font-weight:500;">Cₘ</th>
+            <th style="text-align:left;padding:6px 10px;color:#6b7280;font-weight:500;">|Cₘ|² (결합효율)</th>
           </tr>
         </thead>
         <tbody>${cmRows}</tbody>
@@ -738,8 +738,8 @@ function renderCmBarChart(modalRatioPercent) {
       animation: false,
       plugins: { legend: { display: false } },
       scales: {
-        x: { title: { display: true, text: 'LP0,m mode', color: '#9aa1ac' }, ticks: { color: '#7d8590' }, grid: { display: false } },
-        y: { title: { display: true, text: 'Power ratio (%)', color: '#9aa1ac' }, ticks: { color: '#7d8590' }, grid: { color: 'rgba(255,255,255,0.08)' }, beginAtZero: true }
+        x: { title: { display: true, text: 'LP0,m mode', color: '#5b6270' }, ticks: { color: '#6b7280' }, grid: { display: false } },
+        y: { title: { display: true, text: 'Power ratio (%)', color: '#5b6270' }, ticks: { color: '#6b7280' }, grid: { color: 'rgba(0,0,0,0.1)' }, beginAtZero: true }
       }
     }
   });
@@ -768,7 +768,7 @@ function drawHeatmap() {
   const plotH = totalH - marginTop - marginBottom;
 
   ctx.clearRect(0, 0, totalW, totalH);
-  ctx.fillStyle = '#0f1115';
+  ctx.fillStyle = '#f5f6f8';
   ctx.fillRect(0, 0, totalW, totalH);
 
   const Nz = propState.zArr.length, Nr = propState.rArr.length;
@@ -797,11 +797,11 @@ function drawHeatmap() {
   ctx.drawImage(off, marginLeft, marginTop);
 
   // ---- axes ----
-  ctx.strokeStyle = '#333944';
+  ctx.strokeStyle = '#ccd1d9';
   ctx.lineWidth = 1;
   ctx.strokeRect(marginLeft, marginTop, plotW, plotH);
 
-  ctx.fillStyle = '#9aa1ac';
+  ctx.fillStyle = '#5b6270';
   ctx.font = '11px -apple-system, sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
@@ -813,7 +813,7 @@ function drawHeatmap() {
   for (let zVal = 0; zVal <= zMaxMm + 1e-9; zVal += xStep) {
     const frac = zVal / zMaxMm;
     const xPix = marginLeft + frac * plotW;
-    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+    ctx.strokeStyle = 'rgba(0,0,0,0.1)';
     ctx.beginPath();
     ctx.moveTo(xPix, marginTop);
     ctx.lineTo(xPix, marginTop + plotH);
@@ -834,7 +834,7 @@ function drawHeatmap() {
       const signedR = sign * rVal;
       const frac = signedR / rMaxUm; // -1..1
       const yPix = marginTop + plotH / 2 - frac * (plotH / 2);
-      ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+      ctx.strokeStyle = 'rgba(0,0,0,0.1)';
       ctx.beginPath();
       ctx.moveTo(marginLeft, yPix);
       ctx.lineTo(marginLeft + plotW, yPix);
@@ -978,10 +978,10 @@ function renderSpectrumChart(wavelengths, losses) {
       plugins: {
         legend: { display: false },
         tooltip: {
-          backgroundColor: '#1c2029',
-          titleColor: '#e6e8eb',
-          bodyColor: '#e6e8eb',
-          borderColor: '#333944',
+          backgroundColor: '#ffffff',
+          titleColor: '#1a1d23',
+          bodyColor: '#1a1d23',
+          borderColor: '#ccd1d9',
           borderWidth: 1,
           callbacks: {
             title: (items) => 'λ = ' + Number(items[0].label).toFixed(2) + ' nm',
@@ -992,14 +992,14 @@ function renderSpectrumChart(wavelengths, losses) {
       scales: {
         x: {
           type: 'linear', min: wavelengths[0], max: wavelengths[wavelengths.length - 1],
-          title: { display: true, text: 'Wavelength (nm)', color: '#9aa1ac' },
-          ticks: { color: '#7d8590' },
-          grid: { color: 'rgba(255,255,255,0.05)' }
+          title: { display: true, text: 'Wavelength (nm)', color: '#5b6270' },
+          ticks: { color: '#6b7280' },
+          grid: { color: 'rgba(0,0,0,0.08)' }
         },
         y: {
-          title: { display: true, text: 'Insertion Loss (dB)', color: '#9aa1ac' },
-          ticks: { color: '#7d8590' },
-          grid: { color: 'rgba(255,255,255,0.05)' }
+          title: { display: true, text: 'Insertion Loss (dB)', color: '#5b6270' },
+          ticks: { color: '#6b7280' },
+          grid: { color: 'rgba(0,0,0,0.08)' }
         }
       }
     }
