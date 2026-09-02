@@ -101,26 +101,27 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>LP01 모드 고유값 방정식</h1>
+  <h1>MMF 모드 해석 &amp; SMF 결합 시뮬레이터</h1>
   <div class="sub">U·J₁(U)·K₀(W) − W·K₁(W)·J₀(U) = 0 (계단형 광섬유, scalar approximation)</div>
 
   <div class="card">
+    <div class="label" style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px;">MMF (멀티모드 파이버) 파라미터</div>
     <div class="inputs">
       <div class="field">
-        <label for="ncInput">코어 굴절률 n_core</label>
+        <label for="ncInput">MMF 코어 굴절률 n_core</label>
         <input type="number" id="ncInput" value="1.46" step="0.0001">
       </div>
       <div class="field">
-        <label for="ngInput">클래딩 굴절률 n_clad</label>
-        <input type="number" id="ngInput" value="1.4581" step="0.0001">
+        <label for="ngInput">MMF 클래딩 굴절률 n_clad</label>
+        <input type="number" id="ngInput" value="1.316" step="0.0001">
       </div>
       <div class="field">
         <label for="lamInput">파장 λ (nm)</label>
         <input type="number" id="lamInput" value="1550" step="1">
       </div>
       <div class="field">
-        <label for="diaInput">코어 직경 (um)</label>
-        <input type="number" id="diaInput" value="13.6" step="0.1">
+        <label for="diaInput">MMF 코어 직경 (um)</label>
+        <input type="number" id="diaInput" value="80" step="0.1">
       </div>
     </div>
     <button id="calcBtn">계산</button>
@@ -136,8 +137,10 @@
   </div>
 
   <div class="card">
-    <div class="label" style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px;">LP0,m 모드 목록</div>
-    <div id="rootsTable"></div>
+    <details open>
+      <summary style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.04em;cursor:pointer;">LP0,m 모드 목록 (MMF)</summary>
+      <div id="rootsTable" style="margin-top:10px;"></div>
+    </details>
   </div>
 
   <div class="card">
@@ -146,7 +149,7 @@
   </div>
 
   <div class="card">
-    <div class="label" style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px;">SMF 입력광 정보 (여기 소스)</div>
+    <div class="label" style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px;">SMF (싱글모드 파이버) 입력광 정보 (여기 소스)</div>
     <div class="inputs">
       <div class="field">
         <label for="smfNcInput">SMF 코어 굴절률 n_core</label>
@@ -169,7 +172,7 @@
     <div class="inputs" style="margin-bottom:10px;">
       <div class="field">
         <label for="lzInput">전파 거리 Lz (mm)</label>
-        <input type="number" id="lzInput" value="5" step="0.1">
+        <input type="number" id="lzInput" value="35" step="0.1">
       </div>
     </div>
     <button id="propBtn">전파 계산</button>
@@ -182,8 +185,10 @@
         <div class="stat"><div class="label">총 결합 파워 Σ|Cₘ|²</div><div class="value" id="totalcplval">-</div></div>
       </div>
 
-      <div class="label" style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;">모드별 결합계수</div>
-      <div id="cmTable" style="margin-bottom:14px;"></div>
+      <details>
+        <summary style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.04em;cursor:pointer;margin-bottom:8px;">모드별 결합계수 (SMF→MMF)</summary>
+        <div id="cmTable" style="margin-top:8px;margin-bottom:14px;"></div>
+      </details>
 
       <div class="label" style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;">모드별 파워비율 (%)</div>
       <canvas id="cmBarChart" height="180" style="margin-bottom:18px;"></canvas>
