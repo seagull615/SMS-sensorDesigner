@@ -621,7 +621,11 @@ function runPropagation() {
 
   const { roots, a, k0 } = lastResult;
   const Lz = Lz_mm * 1e-3; // mm -> m
-  const rFactor = 8 / 5; // fixed: r-range = 8/5 x MMF core radius
+  // safe radial integration range: wide enough that the slowest-decaying
+  // guided mode's cladding (K0) tail is negligible at r=rMax, regardless of
+  // core size. 4x the MMF core radius matches validated reference results
+  // (e.g. a2=25um -> rMax=100um) and stays proportionally safe for other a2.
+  const rFactor = 4;
   const rMax = a * rFactor;
 
   const Nr = 300, Nz = 500; // higher resolution (slower but matches reference quality)
@@ -648,14 +652,24 @@ function runPropagation() {
   const normSmf = trapz(smfIntegrand, rArrArr);
   const psiSmf = Array.from(psiSmfRaw).map(v => v / Math.sqrt(normSmf));
 
-  // overlap-integral coupling coefficients C_m (physical excitation from SMF into each MMF mode)
-  const C_m = new Float64Array(M);
+  // normalize each MMF mode to unit power BEFORE using it in any sum, so that
+  // coefficients * modes reconstruct a physically consistent field (this was
+  // previously missing: raw, un-normalized psiTable was summed directly,
+  // which corrupted the reconstructed field's power/phase and produced
+  // spurious loss even at z=0).
   for (let j = 0; j < M; j++) {
     const selfIntegrand = Array.from(psiTable[j]).map((v, i) => v * v * rArrArr[i]);
     const normMode = trapz(selfIntegrand, rArrArr);
+    const normFactor = normMode > 0 ? Math.sqrt(normMode) : 1;
+    psiTable[j] = Array.from(psiTable[j]).map(v => v / normFactor);
+  }
+
+  // overlap-integral coupling coefficients C_m (physical excitation from SMF into each MMF mode)
+  // psiTable modes are already unit-power normalized above, so C_m is simply the overlap integral.
+  const C_m = new Float64Array(M);
+  for (let j = 0; j < M; j++) {
     const crossIntegrand = psiSmf.map((v, i) => v * psiTable[j][i] * rArrArr[i]);
-    const overlap = trapz(crossIntegrand, rArrArr);
-    C_m[j] = overlap / Math.sqrt(normMode);
+    C_m[j] = trapz(crossIntegrand, rArrArr);
   }
 
   const IGrid = new Array(Nz);
@@ -888,7 +902,11 @@ function computeInsertionLossAtWavelength(lam_nm, Lz) {
   const { roots, a, k0 } = mmfResult;
   const M = roots.length;
 
-  const rFactor = 8 / 5; // MMF 코어 반경의 8/5배 (히트맵과 동일 규칙)
+  // safe radial integration range: wide enough that the slowest-decaying
+  // guided mode's cladding (K0) tail is negligible at r=rMax, regardless of
+  // core size. 4x the MMF core radius matches validated reference results
+  // (e.g. a2=25um -> rMax=100um) and stays proportionally safe for other a2.
+  const rFactor = 4;
   const rMax = a * rFactor;
   const Nr = 300;
   const rArr = new Float64Array(Nr);
@@ -912,15 +930,23 @@ function computeInsertionLossAtWavelength(lam_nm, Lz) {
   if (normSmf <= 0) return null;
   const psiSmf = Array.from(psiSmfRaw).map(v => v / Math.sqrt(normSmf));
 
-  // SMF -> MMF 결합계수 Cₘ
-  const C_m = new Float64Array(M);
+  // normalize each MMF mode to unit power BEFORE using it in any sum, so that
+  // coefficients * modes reconstruct a physically consistent field (this was
+  // previously missing: raw, un-normalized psiTable was summed directly,
+  // which corrupted the reconstructed field's power/phase and produced
+  // spurious loss even at z=0).
   for (let j = 0; j < M; j++) {
     const selfIntegrand = Array.from(psiTable[j]).map((v, i) => v * v * rArrArr[i]);
     const normMode = trapz(selfIntegrand, rArrArr);
-    if (normMode <= 0) { C_m[j] = 0; continue; }
+    const normFactor = normMode > 0 ? Math.sqrt(normMode) : 1;
+    psiTable[j] = Array.from(psiTable[j]).map(v => v / normFactor);
+  }
+
+  // SMF -> MMF 결합계수 Cₘ (psiTable이 이미 unit-power로 정규화되어 있으므로 겹침적분 그대로 사용)
+  const C_m = new Float64Array(M);
+  for (let j = 0; j < M; j++) {
     const crossIntegrand = psiSmf.map((v, i) => v * psiTable[j][i] * rArrArr[i]);
-    const overlap = trapz(crossIntegrand, rArrArr);
-    C_m[j] = overlap / Math.sqrt(normMode);
+    C_m[j] = trapz(crossIntegrand, rArrArr);
   }
 
   // z = Lz 지점에서의 복소 필드 E(r,Lz) = Σ Cₘ·ψₘ(r)·exp(iβₘLz)
