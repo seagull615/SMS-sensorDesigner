@@ -6,16 +6,16 @@
 <title>프리즘 굴절 시뮬레이터</title>
 <style>
   :root{
-    --bg:#0b1220;
-    --panel:#121a2b;
-    --panel-border:#233150;
-    --text:#e7edf6;
-    --muted:#8b9bb4;
-    --incident:#ff7a52;
-    --glass-ray:#b98bff;
-    --exit-ray:#43e0c5;
-    --glass-fill: rgba(120,170,255,0.07);
-    --glass-stroke:#4d6da3;
+    --bg:#ffffff;
+    --panel:#f7f9fc;
+    --panel-border:#dde3ee;
+    --text:#1a2436;
+    --muted:#66728a;
+    --incident:#e0562d;
+    --glass-ray:#8b5cf6;
+    --exit-ray:#0d9488;
+    --glass-fill: rgba(59,130,246,0.07);
+    --glass-stroke:#6b85b3;
     --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
     --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Malgun Gothic", sans-serif;
   }
@@ -238,15 +238,15 @@
       const p = toSvg(ev.point);
       const n1p = toSvg({x:ev.point.x+ev.normal.x*0.9, y:ev.point.y+ev.normal.y*0.9});
       const n2p = toSvg({x:ev.point.x-ev.normal.x*0.9, y:ev.point.y-ev.normal.y*0.9});
-      parts.push(`<line x1="${n1p.x}" y1="${n1p.y}" x2="${n2p.x}" y2="${n2p.y}" stroke="#4a5773" stroke-width="1" stroke-dasharray="3,3"/>`);
-      parts.push(`<circle cx="${p.x}" cy="${p.y}" r="3" fill="#c9d4e6"/>`);
+      parts.push(`<line x1="${n1p.x}" y1="${n1p.y}" x2="${n2p.x}" y2="${n2p.y}" stroke="#9aa8c2" stroke-width="1" stroke-dasharray="3,3"/>`);
+      parts.push(`<circle cx="${p.x}" cy="${p.y}" r="3" fill="#33415c"/>`);
 
       const off = labelOffset[ev.edge] || {x:0.4,y:0.4};
       const lp = toSvg({x:ev.point.x+off.x, y:ev.point.y+off.y});
       const txt = ev.type==='tir'
         ? `${ev.angleIn.toFixed(1)}° · 전반사`
         : `${ev.angleIn.toFixed(1)}° → ${ev.angleOut.toFixed(1)}°`;
-      const fill = ev.type==='tir' ? 'var(--incident)' : '#c9d4e6';
+      const fill = ev.type==='tir' ? 'var(--incident)' : '#33415c';
       parts.push(`<text x="${lp.x}" y="${lp.y}" fill="${fill}" font-family="var(--mono)" font-size="13">${txt}</text>`);
     });
 

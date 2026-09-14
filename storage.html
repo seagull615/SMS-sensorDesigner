@@ -6,12 +6,12 @@
 <title>파일 저장소</title>
 <style>
   :root{
-    --bg:#0b1220;
-    --panel:#121a2b;
-    --panel-border:#233150;
-    --text:#e7edf6;
-    --muted:#8b9bb4;
-    --accent:#43e0c5;
+    --bg:#ffffff;
+    --panel:#f7f9fc;
+    --panel-border:#dde3ee;
+    --text:#1a2436;
+    --muted:#66728a;
+    --accent:#3b82f6;
     --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
     --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Malgun Gothic", sans-serif;
   }
@@ -47,8 +47,8 @@
     cursor:pointer;
     border:1px solid transparent;
   }
-  .file-item:hover{background:rgba(255,255,255,0.03);}
-  .file-item.active{background:rgba(67,224,197,0.08); border-color:rgba(67,224,197,0.35);}
+  .file-item:hover{background:rgba(59,130,246,0.05);}
+  .file-item.active{background:rgba(59,130,246,0.08); border-color:rgba(59,130,246,0.35);}
   .file-item .name{font-size:0.88rem;font-weight:600;color:var(--text);}
   .file-item .meta{font-size:0.74rem;color:var(--muted);}
 
@@ -78,7 +78,7 @@
     height:520px;
     border-radius:6px;
     display:block;
-    background:radial-gradient(circle at 50% 30%, #16213a, #0b1220 75%);
+    background:radial-gradient(circle at 50% 30%, #eef2f8, #e2e8f3 75%);
   }
   .stage-footer{
     display:flex;
@@ -112,9 +112,9 @@
   .readout b{color:var(--text);font-weight:600;}
   #errBox{
     display:none;
-    background:rgba(255,107,107,0.1);
-    border:1px solid rgba(255,107,107,0.4);
-    color:#ff9d8a;
+    background:#fef2f2;
+    border:1px solid #fca5a5;
+    color:#c0392b;
     border-radius:8px;
     padding:10px 14px;
     font-size:13px;
@@ -142,6 +142,7 @@
           <label><input type="checkbox" id="wireToggle"> 와이어프레임</label>
           <label><input type="checkbox" id="spinToggle"> 자동 회전</label>
           <button class="ghost" id="resetViewBtn">시점 초기화</button>
+          <button class="ghost" id="downloadBtn">⬇ 다운로드</button>
         </div>
       </div>
       <div class="readout">
@@ -189,6 +190,7 @@ const dimZEl = document.getElementById('dimZ');
 
 let renderer, scene, camera, controls, mesh, gridHelper;
 let entries = STORED_FILES.map(f => ({...f, source:'stored'}));
+let currentEntry = null;
 
 function initScene(){
   const w = canvas.clientWidth || stage.clientWidth;
@@ -203,12 +205,12 @@ function initScene(){
   camera = new THREE.PerspectiveCamera(45, w/h, 0.01, 10000);
   camera.position.set(60,50,80);
 
-  const hemi = new THREE.HemisphereLight(0xdfe9ff, 0x0b1220, 1.1);
+  const hemi = new THREE.HemisphereLight(0xffffff, 0xc9d5e8, 1.15);
   scene.add(hemi);
-  const dir = new THREE.DirectionalLight(0xffffff, 0.9);
+  const dir = new THREE.DirectionalLight(0xffffff, 1.0);
   dir.position.set(1,1.4,1);
   scene.add(dir);
-  const dir2 = new THREE.DirectionalLight(0x88bfff, 0.35);
+  const dir2 = new THREE.DirectionalLight(0x88a9e0, 0.35);
   dir2.position.set(-1,-0.5,-1);
   scene.add(dir2);
 
@@ -216,7 +218,7 @@ function initScene(){
   controls.enableDamping = true;
   controls.dampingFactor = 0.08;
 
-  gridHelper = new THREE.GridHelper(200, 20, 0x2a3a5c, 0x1a2338);
+  gridHelper = new THREE.GridHelper(200, 20, 0xaebcd6, 0xd6dfec);
   gridHelper.visible = false;
   scene.add(gridHelper);
 
@@ -251,7 +253,7 @@ function fitAndShow(geometry, displayName){
   geometry.center();
 
   const material = new THREE.MeshStandardMaterial({
-    color: 0x9db8ff,
+    color: 0x4f6fd0,
     metalness: 0.15,
     roughness: 0.55,
     wireframe: wireToggle.checked,
@@ -318,6 +320,7 @@ function renderList(){
     item.addEventListener('click', () => {
       document.querySelectorAll('.file-item').forEach(el=>el.classList.remove('active'));
       item.classList.add('active');
+      currentEntry = entry;
       if (entry.source === 'stored') loadFromPath(entry.path, entry.name);
       else loadFromLocalFile(entry.fileObj);
     });
@@ -343,6 +346,44 @@ fileInput.addEventListener('change', (e) => {
   document.querySelectorAll('.file-item')[entries.length-1].click();
 });
 
+const downloadBtn = document.getElementById('downloadBtn');
+downloadBtn.addEventListener('click', async () => {
+  if (!currentEntry) return;
+  const originalLabel = downloadBtn.textContent;
+  try{
+    if (currentEntry.source === 'local'){
+      // 로컬에서 불러온 파일은 File 객체를 그대로 다운로드
+      const url = URL.createObjectURL(currentEntry.fileObj);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = currentEntry.fileObj.name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } else {
+      // 저장소 파일은 fetch로 받아온 뒤 Blob으로 다운로드
+      downloadBtn.textContent = '받는 중...';
+      const res = await fetch(currentEntry.path);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = currentEntry.path;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+  }catch(err){
+    errBox.style.display = 'block';
+    errBox.textContent = '다운로드 중 오류가 발생했습니다: ' + err.message;
+  }finally{
+    downloadBtn.textContent = originalLabel;
+  }
+});
+
 wireToggle.addEventListener('change', () => { if (mesh) mesh.material.wireframe = wireToggle.checked; });
 resetViewBtn.addEventListener('click', () => {
   if (!mesh) return;
@@ -358,7 +399,10 @@ resetViewBtn.addEventListener('click', () => {
 
 initScene();
 renderList();
-if (entries.length){ loadFromPath(entries[0].path, entries[0].name); }
+if (entries.length){
+  currentEntry = entries[0];
+  loadFromPath(entries[0].path, entries[0].name);
+}
 </script>
 </body>
 </html>
