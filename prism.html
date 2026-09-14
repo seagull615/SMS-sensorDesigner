@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>프리즘 굴절 시뮬레이터</title>
+<style>
+  :root{
+    --bg:#0b1220;
+    --panel:#121a2b;
+    --panel-border:#233150;
+    --text:#e7edf6;
+    --muted:#8b9bb4;
+    --incident:#ff7a52;
+    --glass-ray:#b98bff;
+    --exit-ray:#43e0c5;
+    --glass-fill: rgba(120,170,255,0.07);
+    --glass-stroke:#4d6da3;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Malgun Gothic", sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--sans);
+  }
+  .page{max-width:1100px;margin:0 auto;padding:32px 20px 48px;}
+  header h1{font-size:1.55rem;font-weight:600;margin:0 0 6px;letter-spacing:-0.01em;}
+  header p.sub{color:var(--muted);margin:0 0 26px;max-width:62ch;line-height:1.5;font-size:0.95rem;}
+  .layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:20px;align-items:start;}
+  @media (max-width:860px){.layout{grid-template-columns:1fr;}}
+  .stage{
+    background:var(--panel);
+    border:1px solid var(--panel-border);
+    border-radius:10px;
+    padding:10px;
+  }
+  .stage svg{width:100%;height:auto;display:block;}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;padding:10px 6px 2px;font-size:0.78rem;color:var(--muted);}
+  .legend span{display:inline-flex;align-items:center;gap:6px;}
+  .legend i{width:14px;height:2px;display:inline-block;}
+  .controls{
+    background:var(--panel);
+    border:1px solid var(--panel-border);
+    border-radius:10px;
+    padding:18px;
+    display:flex;
+    flex-direction:column;
+    gap:16px;
+  }
+  .control label{
+    display:flex;justify-content:space-between;
+    font-size:0.83rem;color:var(--muted);margin-bottom:7px;
+  }
+  .control .val{font-family:var(--mono);color:var(--text);}
+  input[type=range]{
+    width:100%;
+    accent-color:var(--exit-ray);
+  }
+  .fixed-note{font-size:0.78rem;color:var(--muted);font-family:var(--mono);}
+  .readout{
+    border-top:1px solid var(--panel-border);
+    padding-top:14px;
+    display:flex;flex-direction:column;gap:7px;
+    font-family:var(--mono);font-size:0.82rem;
+  }
+  .readout .row{display:flex;justify-content:space-between;gap:10px;}
+  .readout .row .k{color:var(--muted);}
+  .readout .warn{color:var(--incident);}
+  button#resetBtn{
+    background:transparent;border:1px solid var(--panel-border);color:var(--text);
+    padding:9px 12px;border-radius:6px;font-family:var(--sans);font-size:0.83rem;
+    cursor:pointer;
+  }
+  button#resetBtn:hover{border-color:var(--exit-ray);}
+  button#resetBtn:focus-visible{outline:2px solid var(--exit-ray);outline-offset:2px;}
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <h1>프리즘 굴절 시뮬레이터</h1>
+    <p class="sub">오른쪽에서 들어온 빛이 직각삼각형 프리즘의 빗면과 수직면을 지나며 두 번 꺾입니다. 굴절률과 기하를 바꾸면 경로가 실시간으로 다시 계산됩니다.</p>
+  </header>
+  <div class="layout">
+    <div>
+      <div class="stage">
+        <svg id="diagram" viewBox="0 0 900 560" xmlns="http://www.w3.org/2000/svg">
+          <g id="dynamic"></g>
+        </svg>
+      </div>
+      <div class="legend">
+        <span><i style="background:var(--incident)"></i>입사광 (공기)</span>
+        <span><i style="background:var(--glass-ray)"></i>내부 경로 (유리)</span>
+        <span><i style="background:var(--exit-ray)"></i>출사광 (공기)</span>
+      </div>
+    </div>
+    <div class="controls">
+      <div class="fixed-note">공기 굴절률 n₁ = 1.00 (고정)</div>
+
+      <div class="control">
+        <label>유리 굴절률 n₂ <span class="val" id="n2Val">1.45</span></label>
+        <input type="range" id="n2" min="1.1" max="2.2" step="0.01" value="1.45">
+      </div>
+
+      <div class="control">
+        <label>입사 빔 높이 h <span class="val" id="hVal">4.0</span></label>
+        <input type="range" id="h" min="0.1" max="4.9" step="0.1" value="4.0">
+      </div>
+
+      <div class="control">
+        <label>세로변 길이 H <span class="val" id="HVal">5.0</span></label>
+        <input type="range" id="H" min="2" max="8" step="0.1" value="5.0">
+      </div>
+
+      <div class="control">
+        <label>밑변 길이 L <span class="val" id="LVal">5.0</span></label>
+        <input type="range" id="L" min="2" max="8" step="0.1" value="5.0">
+      </div>
+
+      <div class="readout" id="readout"></div>
+
+      <button id="resetBtn">기본값으로</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const svgW = 900, svgH = 560, pad = 40;
+  const worldXmin = -8, worldXmax = 14, worldYmin = -6, worldYmax = 9;
+  const scale = Math.min((svgW-2*pad)/(worldXmax-worldXmin), (svgH-2*pad)/(worldYmax-worldYmin));
+  const usedW = (worldXmax-worldXmin)*scale, usedH = (worldYmax-worldYmin)*scale;
+  const offX = pad + ((svgW-2*pad)-usedW)/2;
+  const offY = pad + ((svgH-2*pad)-usedH)/2;
+
+  function toSvg(p){
+    return { x: offX + (p.x-worldXmin)*scale, y: offY + (worldYmax-p.y)*scale };
+  }
+
+  // vector helpers
+  const sub=(a,b)=>({x:a.x-b.x,y:a.y-b.y});
+  const dot=(a,b)=>a.x*b.x+a.y*b.y;
+  const len=(a)=>Math.sqrt(dot(a,a));
+  const norm=(a)=>{const l=len(a)||1;return {x:a.x/l,y:a.y/l};};
+  const R2D = 180/Math.PI;
+
+  function raySegmentIntersect(p,d,a,b){
+    const v1 = {x:p.x-a.x, y:p.y-a.y};
+    const v2 = {x:b.x-a.x, y:b.y-a.y};
+    const v3 = {x:-d.y, y:d.x};
+    const denom = v2.x*v3.x + v2.y*v3.y;
+    if (Math.abs(denom) < 1e-9) return null;
+    const t1 = (v2.x*v1.y - v2.y*v1.x) / denom;
+    const t2 = (v1.x*v3.x + v1.y*v3.y) / denom;
+    if (t1 > 1e-6 && t2 >= -1e-6 && t2 <= 1+1e-6){
+      return { t: t1, point: {x:p.x+t1*d.x, y:p.y+t1*d.y} };
+    }
+    return null;
+  }
+
+  function traceRay(p, d, nAir, nGlass, edges, maxBounces){
+    const segments = [];
+    const events = [];
+    let curP = p, curD = norm(d), curN = nAir;
+    for (let b=0; b<maxBounces; b++){
+      let best=null, bestEdge=null;
+      for (const edge of edges){
+        const hit = raySegmentIntersect(curP, curD, edge.a, edge.b);
+        if (hit && (!best || hit.t < best.t)){ best=hit; bestEdge=edge; }
+      }
+      if (!best){
+        const exitPoint = {x:curP.x+curD.x*22, y:curP.y+curD.y*22};
+        segments.push({from:curP, to:exitPoint, medium:curN});
+        break;
+      }
+      segments.push({from:curP, to:best.point, medium:curN});
+
+      const ex = bestEdge.b.x-bestEdge.a.x, ey = bestEdge.b.y-bestEdge.a.y;
+      let normal = norm({x:-ey, y:ex});
+      if (dot(normal, curD) > 0) normal = {x:-normal.x, y:-normal.y};
+
+      const isInsideGlass = Math.abs(curN - nGlass) < 1e-9;
+      const nOther = isInsideGlass ? nAir : nGlass;
+      const eta = curN / nOther;
+      const cosI = -dot(normal, curD);
+      const sin2T = eta*eta*(1-cosI*cosI);
+      const angleIn = Math.acos(Math.min(1,Math.max(-1,cosI))) * R2D;
+
+      if (sin2T > 1){
+        const rD = { x: curD.x - 2*dot(curD,normal)*normal.x, y: curD.y - 2*dot(curD,normal)*normal.y };
+        events.push({type:'tir', point:best.point, angleIn, edge:bestEdge.name, normal});
+        curD = norm(rD);
+        curP = {x:best.point.x+curD.x*1e-4, y:best.point.y+curD.y*1e-4};
+      } else {
+        const cosT = Math.sqrt(1-sin2T);
+        const tD = {
+          x: eta*curD.x + (eta*cosI-cosT)*normal.x,
+          y: eta*curD.y + (eta*cosI-cosT)*normal.y
+        };
+        const angleOut = Math.asin(Math.sqrt(sin2T)) * R2D;
+        events.push({type:'refract', point:best.point, angleIn, angleOut, edge:bestEdge.name, fromN:curN, toN:nOther, normal});
+        curD = norm(tD);
+        curN = nOther;
+        curP = {x:best.point.x+curD.x*1e-4, y:best.point.y+curD.y*1e-4};
+      }
+    }
+    return {segments, events};
+  }
+
+  const edgeLabel = {hyp:'빗면', left:'수직면', bottom:'밑면'};
+  const labelOffset = {
+    hyp:   {x: 0.5, y: 0.9},
+    left:  {x: -2.6, y: 0.15},
+    bottom:{x: 0.3, y: -0.9}
+  };
+
+  function render(O,A,B,trace){
+    const g = document.getElementById('dynamic');
+    let parts = [];
+
+    // glass triangle
+    const sO=toSvg(O), sA=toSvg(A), sB=toSvg(B);
+    parts.push(`<polygon points="${sO.x},${sO.y} ${sA.x},${sA.y} ${sB.x},${sB.y}" fill="var(--glass-fill)" stroke="var(--glass-stroke)" stroke-width="1.5"/>`);
+
+    // ray segments
+    trace.segments.forEach((seg,i)=>{
+      const isAir = Math.abs(seg.medium-1) < 1e-9;
+      const color = isAir ? (i===0 ? 'var(--incident)' : 'var(--exit-ray)') : 'var(--glass-ray)';
+      const f = toSvg(seg.from), t = toSvg(seg.to);
+      parts.push(`<line x1="${f.x}" y1="${f.y}" x2="${t.x}" y2="${t.y}" stroke="${color}" stroke-width="2.5" stroke-linecap="round"/>`);
+    });
+
+    // normals + labels at each event
+    trace.events.forEach(ev=>{
+      const p = toSvg(ev.point);
+      const n1p = toSvg({x:ev.point.x+ev.normal.x*0.9, y:ev.point.y+ev.normal.y*0.9});
+      const n2p = toSvg({x:ev.point.x-ev.normal.x*0.9, y:ev.point.y-ev.normal.y*0.9});
+      parts.push(`<line x1="${n1p.x}" y1="${n1p.y}" x2="${n2p.x}" y2="${n2p.y}" stroke="#4a5773" stroke-width="1" stroke-dasharray="3,3"/>`);
+      parts.push(`<circle cx="${p.x}" cy="${p.y}" r="3" fill="#c9d4e6"/>`);
+
+      const off = labelOffset[ev.edge] || {x:0.4,y:0.4};
+      const lp = toSvg({x:ev.point.x+off.x, y:ev.point.y+off.y});
+      const txt = ev.type==='tir'
+        ? `${ev.angleIn.toFixed(1)}° · 전반사`
+        : `${ev.angleIn.toFixed(1)}° → ${ev.angleOut.toFixed(1)}°`;
+      const fill = ev.type==='tir' ? 'var(--incident)' : '#c9d4e6';
+      parts.push(`<text x="${lp.x}" y="${lp.y}" fill="${fill}" font-family="var(--mono)" font-size="13">${txt}</text>`);
+    });
+
+    g.innerHTML = parts.join('');
+  }
+
+  function updateReadout(trace, n2){
+    const el = document.getElementById('readout');
+    const thetaC = Math.asin(Math.min(1, 1/n2)) * R2D;
+    let rows = [];
+    trace.events.forEach((ev,i)=>{
+      const label = edgeLabel[ev.edge] || ev.edge;
+      if (ev.type === 'tir'){
+        rows.push(`<div class="row warn"><span class="k">${label} 입사각</span><span>${ev.angleIn.toFixed(1)}° (임계각 ${thetaC.toFixed(1)}° 초과 → 전반사)</span></div>`);
+      } else {
+        rows.push(`<div class="row"><span class="k">${label} 입사각 / 굴절각</span><span>${ev.angleIn.toFixed(1)}° / ${ev.angleOut.toFixed(1)}°</span></div>`);
+      }
+    });
+    rows.push(`<div class="row"><span class="k">임계각 (유리→공기)</span><span>${thetaC.toFixed(1)}°</span></div>`);
+    el.innerHTML = rows.join('');
+  }
+
+  const n2Input = document.getElementById('n2');
+  const hInput = document.getElementById('h');
+  const HInput = document.getElementById('H');
+  const LInput = document.getElementById('L');
+  const n2Val = document.getElementById('n2Val');
+  const hVal = document.getElementById('hVal');
+  const HVal = document.getElementById('HVal');
+  const LVal = document.getElementById('LVal');
+
+  const defaults = {n2:1.45, h:4.0, H:5.0, L:5.0};
+
+  function update(){
+    const n2 = parseFloat(n2Input.value);
+    const H = parseFloat(HInput.value);
+    const L = parseFloat(LInput.value);
+
+    hInput.max = Math.max(0.1, H-0.1).toFixed(1);
+    let h = parseFloat(hInput.value);
+    if (h > H-0.1){ h = H-0.1; hInput.value = h.toFixed(1); }
+
+    n2Val.textContent = n2.toFixed(2);
+    hVal.textContent = h.toFixed(1);
+    HVal.textContent = H.toFixed(1);
+    LVal.textContent = L.toFixed(1);
+
+    const O={x:0,y:0}, A={x:0,y:H}, B={x:L,y:0};
+    const edges = [
+      {a:A, b:B, name:'hyp'},
+      {a:O, b:A, name:'left'},
+      {a:O, b:B, name:'bottom'}
+    ];
+    const start = {x: worldXmax-0.5, y:h};
+    const trace = traceRay(start, {x:-1,y:0}, 1.0, n2, edges, 8);
+
+    render(O,A,B,trace);
+    updateReadout(trace, n2);
+  }
+
+  [n2Input,hInput,HInput,LInput].forEach(inp=>inp.addEventListener('input', update));
+
+  document.getElementById('resetBtn').addEventListener('click', ()=>{
+    n2Input.value = defaults.n2;
+    HInput.value = defaults.H;
+    LInput.value = defaults.L;
+    hInput.value = defaults.h;
+    update();
+  });
+
+  update();
+})();
+</script>
+</body>
+</html>
