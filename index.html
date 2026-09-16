@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>실험실</title>
+<style>
+  :root{
+    --bg:#080d18;
+    --panel:#0f1729;
+    --panel-border:#22304c;
+    --text:#e7edf6;
+    --muted:#8b9bb4;
+    --accent:#43e0c5;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Malgun Gothic", sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;margin:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--sans);
+    display:flex;
+    flex-direction:column;
+  }
+  .topbar{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    padding:14px 18px 0;
+    border-bottom:1px solid var(--panel-border);
+    background:var(--panel);
+  }
+  .topbar h1{
+    font-size:0.95rem;
+    font-weight:600;
+    color:var(--muted);
+    margin:0 18px 12px 4px;
+    letter-spacing:-0.01em;
+    white-space:nowrap;
+  }
+  .tabs{
+    display:flex;
+    gap:4px;
+    flex:1;
+    overflow-x:auto;
+  }
+  .tab{
+    appearance:none;
+    background:transparent;
+    border:none;
+    color:var(--muted);
+    font-family:var(--sans);
+    font-size:0.86rem;
+    font-weight:500;
+    padding:10px 16px 12px;
+    cursor:pointer;
+    border-bottom:2px solid transparent;
+    white-space:nowrap;
+  }
+  .tab:hover{color:var(--text);}
+  .tab.active{
+    color:var(--text);
+    border-bottom-color:var(--accent);
+  }
+  .tab:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;}
+
+  .panes{
+    flex:1;
+    position:relative;
+  }
+  iframe{
+    position:absolute;
+    inset:0;
+    width:100%;
+    height:100%;
+    border:none;
+    background:var(--bg);
+    display:none;
+  }
+  iframe.active{display:block;}
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <h1>실험실</h1>
+    <div class="tabs" role="tablist">
+      <button class="tab active" data-target="frame-sms" role="tab" aria-selected="true">SMS</button>
+      <button class="tab" data-target="frame-prism" role="tab" aria-selected="false">프리즘 모델링</button>
+      <button class="tab" data-target="frame-gaussian" role="tab" aria-selected="false">Gaussian Beam</button>
+      <button class="tab" data-target="frame-stl" role="tab" aria-selected="false">파일 저장소</button>
+    </div>
+  </div>
+
+  <div class="panes">
+    <iframe id="frame-sms" class="active" src="sms.html" title="SMS"></iframe>
+    <iframe id="frame-prism" src="prism.html" title="프리즘 모델링" loading="lazy"></iframe>
+    <iframe id="frame-gaussian" src="gaussian.html" title="Gaussian Beam" loading="lazy"></iframe>
+    <iframe id="frame-stl" src="storage.html" title="파일 저장소" loading="lazy"></iframe>
+  </div>
+
+<script>
+  const tabs = document.querySelectorAll('.tab');
+  const frames = document.querySelectorAll('.panes iframe');
+
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      tabs.forEach(t => { t.classList.remove('active'); t.setAttribute('aria-selected','false'); });
+      frames.forEach(f => f.classList.remove('active'));
+
+      tab.classList.add('active');
+      tab.setAttribute('aria-selected','true');
+      document.getElementById(tab.dataset.target).classList.add('active');
+    });
+  });
+</script>
+</body>
+</html>

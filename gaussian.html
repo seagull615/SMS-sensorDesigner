@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gaussian Beam Propagation</title>
+<style>
+  :root{
+    --bg:#f4f5f7;
+    --panel:#ffffff;
+    --border:#d9dde5;
+    --text:#20242b;
+    --muted:#68707d;
+    --accent:#4b83c4;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:Arial, "Noto Sans KR", sans-serif;
+  }
+  .wrap{max-width:1250px;margin:0 auto;padding:28px 22px 40px}
+  h1{margin:0 0 6px;font-size:26px}
+  .sub{color:var(--muted);margin-bottom:24px}
+  .medium-box{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:16px 18px;
+    margin-bottom:14px;
+  }
+  .medium-box .label{color:var(--muted);font-size:13px;margin-bottom:10px}
+  .medium-tabs{
+    display:flex;gap:8px;flex-wrap:wrap;align-items:center;
+  }
+  .medium-tab{
+    padding:9px 16px;border-radius:8px;
+    border:1px solid var(--border);
+    background:#f0f1f4;
+    color:var(--text);
+    font-size:14px;cursor:pointer;
+    user-select:none;
+  }
+  .medium-tab .n-hint{color:var(--muted);font-size:11px;margin-left:6px}
+  .medium-tab.active{
+    background:var(--accent);
+    border-color:var(--accent);
+    color:#ffffff;
+  }
+  .medium-tab.active .n-hint{color:rgba(255,255,255,.85)}
+  .custom-n-wrap{
+    display:none;
+    align-items:center;
+    gap:8px;
+    margin-left:4px;
+  }
+  .custom-n-wrap.show{display:flex}
+  .custom-n-wrap label{margin:0;color:var(--muted);font-size:13px;white-space:nowrap}
+  .custom-n-wrap input{width:110px;padding:9px 10px}
+  .controls{
+    display:grid;
+    grid-template-columns:repeat(3,1fr) auto;
+    gap:14px;
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:18px;
+    align-items:end;
+  }
+  label{display:block;color:var(--muted);font-size:13px;margin-bottom:7px}
+  input{
+    width:100%;padding:11px 12px;border-radius:8px;
+    border:1px solid var(--border);background:#0d1525;
+    color:var(--text);font-size:15px;outline:none;
+  }
+  input:focus{border-color:var(--accent)}
+  button{
+    padding:11px 18px;border:0;border-radius:8px;
+    background:var(--accent);color:#ffffff;font-weight:bold;
+    cursor:pointer;font-size:14px;
+  }
+  .results{
+    display:grid;grid-template-columns:repeat(4,1fr);
+    gap:10px;margin:16px 0;
+  }
+  .card{
+    background:var(--panel);border:1px solid var(--border);
+    border-radius:10px;padding:13px;
+  }
+  .card .name{font-size:12px;color:var(--muted);margin-bottom:5px}
+  .card .value{font-size:17px;font-weight:bold}
+  .plots{
+    display:grid;grid-template-columns:1fr 1fr;gap:16px;
+  }
+  .plot{
+    background:var(--panel);border:1px solid var(--border);
+    border-radius:14px;padding:14px;
+  }
+  .plot h2{font-size:15px;margin:0 0 10px}
+  canvas{
+    width:100%;height:auto;display:block;
+    background:#ffffff;border-radius:6px;
+    image-rendering:auto;
+  }
+  .axis-note{color:var(--muted);font-size:12px;margin-top:8px;text-align:center}
+  .formula{
+    margin-top:16px;color:var(--muted);font-size:13px;
+    background:var(--panel);border:1px solid var(--border);
+    border-radius:10px;padding:13px;line-height:1.7;
+  }
+  @media(max-width:800px){
+    .controls{grid-template-columns:1fr 1fr}
+    .results{grid-template-columns:1fr 1fr}
+    .plots{grid-template-columns:1fr}
+  }
+
+  /* Light input / writing areas */
+  input, textarea, select {
+    background:#f8f9fb !important;
+    color:#20242b !important;
+    border-color:#d9dde5 !important;
+  }
+  input::placeholder, textarea::placeholder {
+    color:#8a919d;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Gaussian Beam Propagation</h1>
+  <div class="sub">파장 λ, 빔 웨이스트 w₀, 전파 거리 z를 입력하세요. 모든 단위는 μm입니다.</div>
+
+  <div class="medium-box">
+    <div class="label">매질 (Medium)</div>
+    <div class="medium-tabs" id="mediumTabs">
+      <div class="medium-tab active" data-medium="air" data-n="1.0003">공기 <span class="n-hint">n=1.0003</span></div>
+      <div class="medium-tab" data-medium="water" data-n="1.33">물 <span class="n-hint">n=1.33</span></div>
+      <div class="medium-tab" data-medium="glass" data-n="1.5">유리 <span class="n-hint">n=1.5</span></div>
+      <div class="medium-tab" data-medium="custom" data-n="">커스텀</div>
+      <div class="custom-n-wrap" id="customNWrap">
+        <label for="customN">n =</label>
+        <input id="customN" type="number" step="0.0001" value="1.45">
+      </div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div>
+      <label for="lambda">파장 λ (μm)</label>
+      <input id="lambda" type="number" step="0.001" value="1.550">
+    </div>
+    <div>
+      <label for="w0">Beam waist w₀ (μm)</label>
+      <input id="w0" type="number" step="0.1" value="10">
+    </div>
+    <div>
+      <label for="z">전파 거리 z (μm)</label>
+      <input id="z" type="number" step="0.1" value="202.7">
+    </div>
+    <button id="run">계산 / Plot</button>
+  </div>
+
+  <div class="results">
+    <div class="card"><div class="name">Rayleigh range Zᵣ</div><div class="value" id="zr">-</div></div>
+    <div class="card"><div class="name">Beam radius w(z)</div><div class="value" id="wz">-</div></div>
+    <div class="card"><div class="name">Curvature R(z)</div><div class="value" id="rz">-</div></div>
+    <div class="card"><div class="name">Gouy phase ψ</div><div class="value" id="psi">-</div></div>
+  </div>
+
+  <div class="plots">
+    <div class="plot">
+      <h2>|E(x,y,z)| — Beam amplitude</h2>
+      <canvas id="amp" width="620" height="620"></canvas>
+      <div class="axis-note">x, y (μm)</div>
+    </div>
+    <div class="plot">
+      <h2>Re{E(x,y,z)} — Complex field</h2>
+      <canvas id="real" width="620" height="620"></canvas>
+      <div class="axis-note">x, y (μm)</div>
+    </div>
+  </div>
+
+  <div class="formula">
+    <b>Model</b><br>
+    n = <span id="nDisplay">1.0003</span> &nbsp; | &nbsp;
+    Zᵣ = πw₀²/(nλ) &nbsp; | &nbsp;
+    w(z) = w₀√(1+(z/Zᵣ)²)<br>
+    E = (w₀/w) exp(-r²/w²) · exp(-ikz) · exp(-ikr²/(2R)) · exp(iψ)
+  </div>
+</div>
+
+<script>
+const N = 180;
+const RANGE = 60;       // x,y range: -60 ~ +60 μm
+
+let currentN = 1.0003;
+
+const mediumTabs = document.querySelectorAll(".medium-tab");
+const customNWrap = document.getElementById("customNWrap");
+const customNInput = document.getElementById("customN");
+
+function getCurrentN(){
+  const active = document.querySelector(".medium-tab.active");
+  if(active.dataset.medium === "custom"){
+    const v = parseFloat(customNInput.value);
+    return (v>0) ? v : 1;
+  }
+  return parseFloat(active.dataset.n);
+}
+
+mediumTabs.forEach(tab=>{
+  tab.addEventListener("click",()=>{
+    mediumTabs.forEach(t=>t.classList.remove("active"));
+    tab.classList.add("active");
+    customNWrap.classList.toggle("show", tab.dataset.medium === "custom");
+    calculate();
+  });
+});
+
+customNInput.addEventListener("input", calculate);
+customNInput.addEventListener("keydown", e=>{ if(e.key==="Enter") calculate(); });
+
+function drawHeatmap(canvas, data, min, max, diverging=false){
+  const ctx = canvas.getContext("2d");
+  const W = canvas.width, H = canvas.height;
+  const img = ctx.createImageData(W,H);
+  const span = max-min || 1;
+
+  for(let py=0; py<H; py++){
+    const iy = Math.min(N-1, Math.floor(py/H*N));
+    for(let px=0; px<W; px++){
+      const ix = Math.min(N-1, Math.floor(px/W*N));
+      const v = data[iy*N+ix];
+
+      let r,g,b;
+      if(diverging){
+        const q = Math.max(-1,Math.min(1,v));
+        if(q >= 0){
+          r = 255;
+          g = Math.round(255*(1-q));
+          b = Math.round(255*(1-q));
+        }else{
+          const a = -q;
+          r = Math.round(255*(1-a));
+          g = Math.round(255*(1-a));
+          b = 255;
+        }
+      }else{
+        const q = Math.max(0,Math.min(1,(v-min)/span));
+        // white -> blue-like grayscale mapping
+        const c = Math.round(255*(1-q));
+        r=g=b=c;
+      }
+      const p=(py*W+px)*4;
+      img.data[p]=r; img.data[p+1]=g; img.data[p+2]=b; img.data[p+3]=255;
+    }
+  }
+  ctx.putImageData(img,0,0);
+
+  // axes / center lines
+  ctx.strokeStyle="rgba(0,0,0,.25)";
+  ctx.lineWidth=1;
+  ctx.beginPath();
+  ctx.moveTo(W/2,0);ctx.lineTo(W/2,H);
+  ctx.moveTo(0,H/2);ctx.lineTo(W,H/2);
+  ctx.stroke();
+}
+
+function calculate(){
+  const lambda = parseFloat(document.getElementById("lambda").value);
+  const w0 = parseFloat(document.getElementById("w0").value);
+  const z = parseFloat(document.getElementById("z").value);
+
+  if(!(lambda>0) || !(w0>0) || !Number.isFinite(z)){
+    alert("λ과 w₀는 0보다 커야 합니다.");
+    return;
+  }
+
+  const n = getCurrentN();
+  document.getElementById("nDisplay").textContent = n.toFixed(4);
+
+  const k = 2*Math.PI*n/lambda;
+  const Zr = Math.PI*w0*w0/(n*lambda);
+  const w = w0*Math.sqrt(1+(z/Zr)**2);
+
+  // z=0에서는 R=infinity. 수치적으로 curvature term은 0으로 처리.
+  const R = Math.abs(z)<1e-14 ? Infinity : z*(1+(Zr/z)**2);
+  const psi = Math.atan(z/Zr);
+
+  document.getElementById("zr").textContent = Zr.toFixed(4)+" μm";
+  document.getElementById("wz").textContent = w.toFixed(4)+" μm";
+  document.getElementById("rz").textContent = Number.isFinite(R) ? R.toFixed(4)+" μm" : "∞";
+  document.getElementById("psi").textContent = psi.toFixed(6)+" rad";
+
+  const amp = new Float32Array(N*N);
+  const real = new Float32Array(N*N);
+
+  let maxAmp=0;
+  const dx=(2*RANGE)/(N-1);
+
+  for(let iy=0;iy<N;iy++){
+    const y=-RANGE+iy*dx;
+    for(let ix=0;ix<N;ix++){
+      const x=-RANGE+ix*dx;
+      const rr=x*x+y*y;
+
+      const Ez = (w0/w)*Math.exp(-rr/(w*w));
+      const phaseZ = -k*z;
+      const phaseCurv = Number.isFinite(R) ? -k*rr/(2*R) : 0;
+      const phase = phaseZ + phaseCurv + psi;
+
+      const idx=iy*N+ix;
+      amp[idx]=Ez;
+      real[idx]=Ez*Math.cos(phase);
+      if(Ez>maxAmp) maxAmp=Ez;
+    }
+  }
+
+  drawHeatmap(document.getElementById("amp"), amp, 0, maxAmp, false);
+
+  let maxAbs=0;
+  for(let i=0;i<real.length;i++) maxAbs=Math.max(maxAbs,Math.abs(real[i]));
+  drawHeatmap(document.getElementById("real"), real, -maxAbs, maxAbs, true);
+}
+
+document.getElementById("run").addEventListener("click",calculate);
+["lambda","w0","z"].forEach(id=>{
+  document.getElementById(id).addEventListener("keydown",e=>{
+    if(e.key==="Enter") calculate();
+  });
+});
+calculate();
+</script>
+</body>
+</html>
