@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fiber Coupling Efficiency</title>
+<style>
+  :root{
+    --bg:#f5f6f8;
+    --panel:#ffffff;
+    --panel-border:#dfe3e8;
+    --text:#1c1f24;
+    --muted:#6b7280;
+    --accent:#2563eb;
+    --accent-soft:#eaf0fe;
+    --mono-bg:#f0f2f5;
+    --result-bg:#eef7f0;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Malgun Gothic", sans-serif;
+  }
+  *{ box-sizing: border-box; }
+  html,body{ height:100%; margin:0; }
+  body{
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    padding: 24px 16px 60px;
+  }
+  .wrap{ max-width: 760px; margin: 0 auto; }
+  h1{
+    font-size: 1.15rem;
+    font-weight: 600;
+    margin: 0 0 4px;
+    letter-spacing: -0.01em;
+  }
+  .sub{
+    color: var(--muted);
+    font-size: 0.82rem;
+    margin: 0 0 22px;
+  }
+  .card{
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 14px;
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  .card h2{
+    font-size: 0.82rem;
+    margin: 0 0 14px;
+    color: var(--muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .fiber-grid{
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  @media (max-width: 520px){
+    .fiber-grid{ grid-template-columns: 1fr; }
+  }
+  .fiber-block{
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    background: var(--accent-soft);
+  }
+  .fiber-block h3{
+    margin: 0 0 10px;
+    font-size: 0.82rem;
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .field{ margin-bottom: 10px; }
+  .field:last-child{ margin-bottom: 0; }
+  label{
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.78rem;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  input[type="number"]{
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--panel-border);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 0.95rem;
+    font-variant-numeric: tabular-nums;
+  }
+  input[type="number"]:focus{
+    outline: none;
+    border-color: var(--accent);
+  }
+  .lambda-row{ margin-bottom: 16px; }
+  .lambda-row input{ max-width: 200px; }
+  .results{
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  @media (max-width: 520px){
+    .results{ grid-template-columns: 1fr; }
+  }
+  .result-item{
+    background: var(--mono-bg);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 0.85rem;
+  }
+  .result-item .k{
+    color: var(--muted);
+    font-size: 0.72rem;
+    margin-bottom: 2px;
+  }
+  .result-item .v{
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+  }
+  .eta-box{
+    background: var(--result-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    padding: 18px 20px;
+    text-align: center;
+  }
+  .eta-box .label{
+    font-size: 0.78rem;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .eta-box .value{
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+  .code-note{
+    font-size: 0.72rem;
+    color: var(--muted);
+    margin-top: 18px;
+    line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Fiber Coupling Efficiency Calculator</h1>
+  <p class="sub">Marcuse MFD 근사식 기반 두 광섬유 간 결합 효율 계산 (cylinder integral)</p>
+
+  <div class="card">
+    <h2>Input</h2>
+    <div class="lambda-row">
+      <div class="field">
+        <label>λ (파장) <span>µm</span></label>
+        <input type="number" id="lambda" value="1.55" step="0.01">
+      </div>
+    </div>
+    <div class="field" style="margin-bottom:16px;">
+      <label>d (중심 오프셋, lateral offset) <span>µm</span></label>
+      <input type="number" id="offset" value="0" step="0.1" min="0">
+    </div>
+    <div class="fiber-grid">
+      <div class="fiber-block">
+        <h3>Fiber 1</h3>
+        <div class="field">
+          <label>a₁ (코어 반경) <span>µm</span></label>
+          <input type="number" id="a1" value="4" step="0.1">
+        </div>
+        <div class="field">
+          <label>NA₁</label>
+          <input type="number" id="NA1" value="0.14" step="0.001">
+        </div>
+      </div>
+      <div class="fiber-block">
+        <h3>Fiber 2</h3>
+        <div class="field">
+          <label>a₂ (코어 반경) <span>µm</span></label>
+          <input type="number" id="a2" value="5" step="0.1">
+        </div>
+        <div class="field">
+          <label>NA₂</label>
+          <input type="number" id="NA2" value="0.08" step="0.001">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Output</h2>
+    <div class="results">
+      <div class="result-item">
+        <div class="k">V₁ (V-parameter)</div>
+        <div class="v" id="out-V1">-</div>
+      </div>
+      <div class="result-item">
+        <div class="k">V₂ (V-parameter)</div>
+        <div class="v" id="out-V2">-</div>
+      </div>
+      <div class="result-item">
+        <div class="k">ω₁ (Marcuse MFD/2) — µm</div>
+        <div class="v" id="out-w1">-</div>
+      </div>
+      <div class="result-item">
+        <div class="k">ω₂ (Marcuse MFD/2) — µm</div>
+        <div class="v" id="out-w2">-</div>
+      </div>
+    </div>
+
+    <div class="eta-box">
+      <div class="label">Coupling Efficiency η</div>
+      <div>
+        <span class="value" id="out-eta">-</span>
+        <span class="value" id="out-eta-db" style="font-size:1.4rem;"></span>
+      </div>
+    </div>
+    <div class="code-note">
+      V = 2π·a/λ·NA &nbsp;|&nbsp; ω = (0.65 + 1.619/V<sup>1.5</sup> + 2.879/V<sup>6</sup>)·a &nbsp;|&nbsp;
+      η_axial = 4ω₁²ω₂² / (ω₁²+ω₂²)² &nbsp;|&nbsp;
+      η = η_axial · exp(−2d² / (ω₁²+ω₂²))
+    </div>
+  </div>
+</div>
+
+<script>
+  const ids = ['lambda','a1','NA1','a2','NA2','offset'];
+  const inputs = Object.fromEntries(ids.map(id => [id, document.getElementById(id)]));
+
+  function fmt(x, digits = 4) {
+    if (!isFinite(x)) return '—';
+    return Number(x).toLocaleString(undefined, {
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits
+    });
+  }
+
+  function toDb(ratio) {
+    if (!isFinite(ratio) || ratio <= 0) return '—';
+    const db = 10 * Math.log10(ratio); // 0 이하 값 (손실)
+    return `${fmt(db, 4)} dB`;
+  }
+
+  function calc() {
+    const lambda = parseFloat(inputs.lambda.value);
+    const a1 = parseFloat(inputs.a1.value);
+    const NA1 = parseFloat(inputs.NA1.value);
+    const a2 = parseFloat(inputs.a2.value);
+    const NA2 = parseFloat(inputs.NA2.value);
+    const d = parseFloat(inputs.offset.value);
+
+    if ([lambda, a1, NA1, a2, NA2].some(v => !isFinite(v) || v <= 0) || !isFinite(d) || d < 0) {
+      ['out-V1','out-V2','out-w1','out-w2','out-eta'].forEach(id => {
+        document.getElementById(id).textContent = '-';
+      });
+      document.getElementById('out-eta-db').textContent = '-';
+      return;
+    }
+
+    const V1 = 2 * Math.PI * a1 / lambda * NA1;
+    const V2 = 2 * Math.PI * a2 / lambda * NA2;
+
+    const w = (V, a) => (0.65 + 1.619 / Math.pow(V, 1.5) + 2.879 / Math.pow(V, 6)) * a;
+    const w1 = w(V1, a1);
+    const w2 = w(V2, a2);
+
+    const etaAxial = 4 * w1 * w1 * w2 * w2 / Math.pow(w1 * w1 + w2 * w2, 2);
+    const offsetFactor = Math.exp(-2 * d * d / (w1 * w1 + w2 * w2));
+    const eta = etaAxial * offsetFactor;
+
+    document.getElementById('out-V1').textContent = fmt(V1);
+    document.getElementById('out-V2').textContent = fmt(V2);
+    document.getElementById('out-w1').textContent = fmt(w1);
+    document.getElementById('out-w2').textContent = fmt(w2);
+    document.getElementById('out-eta').textContent = fmt(eta);
+    document.getElementById('out-eta-db').textContent = `(${toDb(eta)})`;
+  }
+
+  ids.forEach(id => inputs[id].addEventListener('input', calc));
+  calc();
+</script>
+</body>
+</html>
