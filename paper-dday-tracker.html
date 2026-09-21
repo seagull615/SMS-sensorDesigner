@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="application-name" content="paper-tracker">
+<meta name="apple-mobile-web-app-title" content="paper-tracker">
+<meta name="mobile-web-app-capable" content="yes">
+<title>논문 작업 트래커</title>
+<style>
+:root{
+  --bg:#f7f8fa;
+  --panel:#ffffff;
+  --panel-border:#dfe3ea;
+  --text:#1a2233;
+  --muted:#6b7688;
+  --accent:#0f9d8a;
+  --accent2:#c9702c;
+  --danger:#d64545;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans KR","Malgun Gothic",sans-serif;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Consolas,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--text);font-family:var(--sans)}
+.wrap{width:min(960px,92%);margin:auto;padding:36px 0 60px;display:flex;flex-direction:column;gap:18px}
+
+header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+h2.page-title{margin:0;font-size:1.3rem;font-weight:600;letter-spacing:-.01em}
+.today{color:var(--muted);font-size:0.82rem}
+
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+.panel{background:var(--panel);border:1px solid var(--panel-border);border-radius:10px}
+
+.dday-panel{padding:16px 18px}
+.dday-label{color:var(--muted);font-size:0.82rem;font-weight:600;margin-bottom:6px}
+.dday-readout{font-size:2rem;font-weight:700;letter-spacing:-.02em;margin-bottom:12px}
+.dday-readout.accent{color:var(--accent)}
+.dday-readout.accent2{color:var(--accent2)}
+.date-row{display:flex;gap:8px}
+.date-row input[type=date]{
+  flex:1;padding:9px 10px;font-size:0.86rem;border:1px solid var(--panel-border);
+  border-radius:8px;background:var(--panel);color:var(--text);font-family:var(--sans)
+}
+.date-row input[type=date]:focus{outline:none;border-color:var(--accent)}
+.clear-btn{padding:9px 12px;font-size:0.8rem;background:transparent;color:var(--muted);
+  border:1px solid var(--panel-border);border-radius:8px;cursor:pointer;font-family:var(--sans)}
+.clear-btn:hover{color:var(--text)}
+
+.section{padding:20px 22px}
+.title-row{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:4px;flex-wrap:wrap}
+h2{margin:0;font-size:1.05rem;font-weight:600;letter-spacing:-.01em}
+.hint{font-size:0.82rem;color:var(--muted);margin-bottom:14px}
+
+button{border:0;border-radius:8px;padding:9px 14px;font-weight:600;cursor:pointer;font-family:var(--sans);font-size:0.86rem}
+button.primary{background:var(--accent);color:#fff}
+button.primary:hover{filter:brightness(.94)}
+button.ghost{background:transparent;color:var(--accent);border:1px solid var(--panel-border)}
+button.ghost:hover{border-color:var(--accent)}
+
+.form{display:grid;grid-template-columns:200px 1fr auto;gap:9px;margin-bottom:14px}
+input{width:100%;padding:10px 11px;border:1px solid var(--panel-border);border-radius:8px;
+  background:var(--panel);color:var(--text);font-size:0.9rem;outline:none;font-family:var(--sans)}
+input:focus{border-color:var(--accent)}
+
+.entries{display:flex;flex-direction:column;gap:9px}
+.entry{background:#fff;border:1px solid var(--panel-border);border-radius:10px;padding:11px 15px;
+  display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+
+.ref-file{color:var(--accent);font-size:0.86rem;font-weight:600;text-decoration:none;white-space:nowrap}
+.ref-file:hover{text-decoration:underline}
+.ref-subtitle{flex:1;min-width:180px;padding:8px 10px;font-size:0.86rem;border:1px solid var(--panel-border);
+  border-radius:8px;background:var(--bg);color:var(--text)}
+
+.link-main{flex:1;min-width:0}
+.link-main a{color:var(--text);text-decoration:none;font-weight:600;font-size:0.9rem}
+.link-main a:hover{text-decoration:underline}
+.link-url{display:block;color:var(--muted);font-size:0.76rem;margin-top:2px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.del{padding:6px 10px;background:transparent;color:var(--danger);font-size:0.78rem;
+  border:1px solid var(--panel-border);border-radius:8px}
+.del:hover{border-color:var(--danger)}
+
+.empty,.error{color:var(--muted);font-size:0.86rem;padding:16px 2px}
+.error{color:var(--danger)}
+.note{margin-top:10px;color:var(--muted);font-size:0.76rem;line-height:1.5}
+
+.cfg-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:12px}
+.cfg-grid label{font-size:0.76rem;color:var(--muted);display:block;margin-bottom:4px}
+.cfg-grid .path-field{grid-column:1 / -1}
+.cfg-grid .path-field input{font-family:var(--mono);font-size:0.82rem}
+details{margin-bottom:16px}
+summary{cursor:pointer;font-size:0.9rem;color:var(--text);font-weight:600;padding:4px 0;list-style:none}
+summary::-webkit-details-marker{display:none}
+summary:before{content:"▸ ";color:var(--muted)}
+details[open] summary:before{content:"▾ "}
+
+@media(max-width:700px){
+  .grid{grid-template-columns:1fr}
+  .form{grid-template-columns:1fr}
+  .cfg-grid{grid-template-columns:1fr 1fr}
+  .dday-readout{font-size:1.7rem}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h2 class="page-title">논문 작업 트래커</h2>
+    <div class="today" id="todayLine">오늘</div>
+  </header>
+
+  <div class="grid">
+    <section class="panel dday-panel">
+      <div class="dday-label">연습 논문 투고일</div>
+      <div class="dday-readout accent" id="d-practice">미설정</div>
+      <div class="date-row">
+        <input type="date" id="practiceDate">
+        <button type="button" class="clear-btn" onclick="clearDate('practice')">지우기</button>
+      </div>
+    </section>
+
+    <section class="panel dday-panel">
+      <div class="dday-label">실전 논문 투고일</div>
+      <div class="dday-readout accent2" id="d-real">미설정</div>
+      <div class="date-row">
+        <input type="date" id="realDate">
+        <button type="button" class="clear-btn" onclick="clearDate('real')">지우기</button>
+      </div>
+    </section>
+  </div>
+
+  <section class="panel section">
+    <details id="cfgBlock">
+      <summary>GitHub 저장소 설정</summary>
+      <div class="cfg-grid" style="margin-top:12px">
+        <div>
+          <label>owner</label>
+          <input id="cfgOwner" placeholder="seagull615">
+        </div>
+        <div>
+          <label>repo</label>
+          <input id="cfgRepo" placeholder="my-papers">
+        </div>
+        <div>
+          <label>branch</label>
+          <input id="cfgBranch" placeholder="main">
+        </div>
+        <div>
+          <label>token (선택)</label>
+          <input id="cfgToken" type="password" placeholder="ghp_...">
+        </div>
+        <div class="path-field">
+          <label>참고 문헌 PDF 폴더 경로</label>
+          <input id="cfgRefPath" placeholder="papers/references">
+        </div>
+        <div class="path-field">
+          <label>연습투고 완료 폴더 경로</label>
+          <input id="cfgSubmittedPath" placeholder="papers/practice-submitted">
+        </div>
+      </div>
+      <button type="button" class="primary" onclick="saveConfig()">설정 저장</button>
+      <div class="note">private repo는 token 입력이 필요합니다. token은 이 브라우저에만 저장됩니다.</div>
+    </details>
+  </section>
+
+  <section class="panel section">
+    <div class="title-row">
+      <h2>참고 문헌 PDF</h2>
+      <button type="button" class="ghost" onclick="refreshRefList()">새로고침</button>
+    </div>
+    <div class="hint">GitHub 폴더의 참고 문헌 PDF 목록입니다.</div>
+    <div class="entries" id="refList"></div>
+    <div id="refEmpty" class="empty">설정 저장 후 새로고침을 눌러주세요.</div>
+    <div id="refErr" class="error" style="display:none"></div>
+  </section>
+
+  <section class="panel section">
+    <div class="title-row">
+      <h2>연습 투고 완료 논문</h2>
+      <button type="button" class="ghost" onclick="refreshSubmittedList()">새로고침</button>
+    </div>
+    <div class="hint">연습 투고를 마친 논문 PDF 목록입니다.</div>
+    <div class="entries" id="submittedList"></div>
+    <div id="submittedEmpty" class="empty">설정 저장 후 새로고침을 눌러주세요.</div>
+    <div id="submittedErr" class="error" style="display:none"></div>
+  </section>
+
+  <section class="panel section">
+    <div class="title-row">
+      <h2>참고 링크</h2>
+    </div>
+    <div class="hint">제목 + 링크를 저장하세요.</div>
+
+    <form class="form" id="linkForm">
+      <input id="linkTitle" type="text" placeholder="간략한 제목" maxlength="100" required>
+      <input id="linkUrl" type="url" placeholder="https://..." required>
+      <button type="submit" class="primary">추가</button>
+    </form>
+
+    <div class="entries" id="linkList"></div>
+    <div id="linkEmpty" class="empty">아직 저장한 링크가 없습니다.</div>
+    <div class="note">저장한 목록은 이 브라우저에만 보관됩니다.</div>
+  </section>
+</div>
+
+<script>
+/* ---------- 날짜 / D-Day ---------- */
+const DDAY_KEY = "paper-tracker-ddays-v1";
+
+function loadDdays(){
+  try { return JSON.parse(localStorage.getItem(DDAY_KEY) || "{}"); }
+  catch { return {}; }
+}
+function saveDdays(obj){ localStorage.setItem(DDAY_KEY, JSON.stringify(obj)); }
+
+function formatToday(){
+  const now = new Date();
+  const y = now.getFullYear(), m = String(now.getMonth()+1).padStart(2,"0"), d = String(now.getDate()).padStart(2,"0");
+  return `${y}-${m}-${d}`;
+}
+
+function renderDday(id, dateStr){
+  const el = document.getElementById(id);
+  if(!dateStr){ el.textContent = "미설정"; return; }
+  const target = new Date(dateStr + "T00:00:00");
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const diff = Math.ceil((target - today) / 86400000);
+  if(diff > 0) el.textContent = "D-" + diff;
+  else if(diff === 0) el.textContent = "D-Day";
+  else el.textContent = "D+" + Math.abs(diff);
+}
+
+function clearDate(which){
+  const dd = loadDdays();
+  delete dd[which];
+  saveDdays(dd);
+  document.getElementById(which === "practice" ? "practiceDate" : "realDate").value = "";
+  renderDday(which === "practice" ? "d-practice" : "d-real", null);
+}
+
+function initDdays(){
+  document.getElementById("todayLine").textContent = formatToday();
+  const dd = loadDdays();
+  const pInput = document.getElementById("practiceDate");
+  const rInput = document.getElementById("realDate");
+  pInput.value = dd.practice || "";
+  rInput.value = dd.real || "";
+  renderDday("d-practice", dd.practice);
+  renderDday("d-real", dd.real);
+
+  pInput.addEventListener("change", () => {
+    const cur = loadDdays();
+    cur.practice = pInput.value;
+    saveDdays(cur);
+    renderDday("d-practice", pInput.value);
+  });
+  rInput.addEventListener("change", () => {
+    const cur = loadDdays();
+    cur.real = rInput.value;
+    saveDdays(cur);
+    renderDday("d-real", rInput.value);
+  });
+}
+
+/* ---------- GitHub 설정 ---------- */
+const CFG_KEY = "paper-tracker-github-config-v1";
+
+function loadConfig(){
+  try { return JSON.parse(localStorage.getItem(CFG_KEY) || "{}"); }
+  catch { return {}; }
+}
+function saveConfig(){
+  const cfg = {
+    owner: document.getElementById("cfgOwner").value.trim(),
+    repo: document.getElementById("cfgRepo").value.trim(),
+    branch: document.getElementById("cfgBranch").value.trim() || "main",
+    token: document.getElementById("cfgToken").value.trim(),
+    refPath: document.getElementById("cfgRefPath").value.trim(),
+    submittedPath: document.getElementById("cfgSubmittedPath").value.trim()
+  };
+  localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
+  document.getElementById("cfgBlock").open = false;
+  refreshRefList();
+  refreshSubmittedList();
+}
+function initConfig(){
+  const cfg = loadConfig();
+  document.getElementById("cfgOwner").value = cfg.owner || "";
+  document.getElementById("cfgRepo").value = cfg.repo || "";
+  document.getElementById("cfgBranch").value = cfg.branch || "";
+  document.getElementById("cfgToken").value = cfg.token || "";
+  document.getElementById("cfgRefPath").value = cfg.refPath || "";
+  document.getElementById("cfgSubmittedPath").value = cfg.submittedPath || "";
+  if(!cfg.owner || !cfg.repo){
+    document.getElementById("cfgBlock").open = true;
+  }
+}
+
+/* ---------- GitHub 폴더 목록 불러오기 ---------- */
+async function fetchPdfFolder(path){
+  const cfg = loadConfig();
+  if(!cfg.owner || !cfg.repo || !path){
+    throw new Error("설정에서 owner/repo와 폴더 경로를 먼저 입력해주세요.");
+  }
+  const url = `https://api.github.com/repos/${encodeURIComponent(cfg.owner)}/${encodeURIComponent(cfg.repo)}/contents/${path}?ref=${encodeURIComponent(cfg.branch || "main")}`;
+  const headers = { "Accept": "application/vnd.github+json" };
+  if(cfg.token) headers["Authorization"] = "Bearer " + cfg.token;
+
+  const res = await fetch(url, { headers });
+  if(!res.ok){
+    if(res.status === 404) throw new Error("폴더를 찾을 수 없습니다. owner/repo/branch/경로를 확인해주세요.");
+    if(res.status === 403) throw new Error("접근이 거부되었습니다 (API 요청 한도 초과 또는 private repo면 토큰이 필요합니다).");
+    throw new Error("GitHub API 오류 (status " + res.status + ")");
+  }
+  const data = await res.json();
+  if(!Array.isArray(data)) throw new Error("해당 경로는 폴더가 아닙니다.");
+  return data.filter(item => item.type === "file" && /\.pdf$/i.test(item.name));
+}
+
+/* ---------- 참고 문헌 PDF 목록 (파일명 + 부제목 모두 표시) ---------- */
+const SUBTITLE_KEY = "paper-tracker-subtitles-v1";
+
+function loadSubtitles(){
+  try { return JSON.parse(localStorage.getItem(SUBTITLE_KEY) || "{}"); }
+  catch { return {}; }
+}
+function saveSubtitle(path, value){
+  const map = loadSubtitles();
+  if(value) map[path] = value; else delete map[path];
+  localStorage.setItem(SUBTITLE_KEY, JSON.stringify(map));
+}
+
+async function refreshRefList(){
+  const list = document.getElementById("refList");
+  const empty = document.getElementById("refEmpty");
+  const errBox = document.getElementById("refErr");
+  errBox.style.display = "none";
+  empty.textContent = "불러오는 중...";
+  empty.style.display = "block";
+  list.innerHTML = "";
+
+  try{
+    const cfg = loadConfig();
+    const files = await fetchPdfFolder(cfg.refPath);
+    const subtitles = loadSubtitles();
+
+    empty.style.display = files.length ? "none" : "block";
+    if(!files.length) empty.textContent = "폴더에 PDF 파일이 없습니다.";
+
+    files.forEach(file => {
+      const row = document.createElement("div");
+      row.className = "entry";
+
+      const a = document.createElement("a");
+      a.className = "ref-file";
+      a.href = file.html_url;
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      a.textContent = file.name;
+
+      const subtitleInput = document.createElement("input");
+      subtitleInput.className = "ref-subtitle";
+      subtitleInput.placeholder = "한 줄 요약 입력";
+      subtitleInput.value = subtitles[file.path] || "";
+      subtitleInput.addEventListener("change", () => saveSubtitle(file.path, subtitleInput.value.trim()));
+
+      row.appendChild(a);
+      row.appendChild(subtitleInput);
+      list.appendChild(row);
+    });
+  } catch(e){
+    empty.style.display = "none";
+    errBox.style.display = "block";
+    errBox.textContent = e.message;
+  }
+}
+
+/* ---------- 연습 투고 완료 목록 (부제목 없음) ---------- */
+async function refreshSubmittedList(){
+  const list = document.getElementById("submittedList");
+  const empty = document.getElementById("submittedEmpty");
+  const errBox = document.getElementById("submittedErr");
+  errBox.style.display = "none";
+  empty.textContent = "불러오는 중...";
+  empty.style.display = "block";
+  list.innerHTML = "";
+
+  try{
+    const cfg = loadConfig();
+    const files = await fetchPdfFolder(cfg.submittedPath);
+
+    empty.style.display = files.length ? "none" : "block";
+    if(!files.length) empty.textContent = "폴더에 PDF 파일이 없습니다.";
+
+    files.forEach(file => {
+      const row = document.createElement("div");
+      row.className = "entry";
+      const a = document.createElement("a");
+      a.className = "ref-file";
+      a.href = file.html_url;
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      a.textContent = file.name;
+      row.appendChild(a);
+      list.appendChild(row);
+    });
+  } catch(e){
+    empty.style.display = "none";
+    errBox.style.display = "block";
+    errBox.textContent = e.message;
+  }
+}
+
+/* ---------- 참고 링크 ---------- */
+const LINK_KEY = "paper-tracker-links-v1";
+let links = JSON.parse(localStorage.getItem(LINK_KEY) || "[]");
+
+function renderLinks(){
+  const list = document.getElementById("linkList");
+  const empty = document.getElementById("linkEmpty");
+  list.innerHTML = "";
+  empty.style.display = links.length ? "none" : "block";
+
+  links.forEach((link, index) => {
+    const row = document.createElement("div");
+    row.className = "entry";
+
+    const div = document.createElement("div");
+    div.className = "link-main";
+
+    const a = document.createElement("a");
+    a.href = link.url;
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+    a.textContent = link.title;
+
+    const url = document.createElement("span");
+    url.className = "link-url";
+    url.textContent = link.url;
+
+    div.appendChild(a);
+    div.appendChild(url);
+
+    const del = document.createElement("button");
+    del.className = "del";
+    del.type = "button";
+    del.textContent = "삭제";
+    del.onclick = () => {
+      links.splice(index, 1);
+      localStorage.setItem(LINK_KEY, JSON.stringify(links));
+      renderLinks();
+    };
+
+    row.appendChild(div);
+    row.appendChild(del);
+    list.appendChild(row);
+  });
+}
+
+document.getElementById("linkForm").addEventListener("submit", (e) => {
+  e.preventDefault();
+
+  const title = document.getElementById("linkTitle").value.trim();
+  let url = document.getElementById("linkUrl").value.trim();
+  if (!/^https?:\/\//i.test(url)) url = "https://" + url;
+
+  links.unshift({ title, url, savedAt: new Date().toISOString() });
+  localStorage.setItem(LINK_KEY, JSON.stringify(links));
+  e.target.reset();
+  document.getElementById("linkTitle").focus();
+  renderLinks();
+});
+
+/* ---------- 초기화 ---------- */
+initDdays();
+initConfig();
+renderLinks();
+if(loadConfig().owner && loadConfig().repo){
+  refreshRefList();
+  refreshSubmittedList();
+}
+</script>
+</body>
+</html>
