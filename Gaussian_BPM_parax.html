@@ -1,0 +1,1040 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gaussian Beam Propagation - MATLAB Equivalent</title>
+
+<style>
+    body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        background: #f4f4f4;
+        color: #222;
+    }
+
+    .container {
+        max-width: 1100px;
+        margin: 30px auto;
+        padding: 20px;
+    }
+
+    h1 {
+        margin-bottom: 20px;
+    }
+
+    .method-note {
+        margin: -14px 0 20px;
+        font-size: 13px;
+        color: #777;
+    }
+
+    .panel {
+        background: white;
+        padding: 20px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    .parameters {
+        font-size: 14px;
+        line-height: 1.9;
+        color: #333;
+    }
+
+    .parameters .param-item {
+        display: inline;
+        margin-right: 18px;
+        white-space: nowrap;
+    }
+
+    .parameters .param-label {
+        color: #888;
+    }
+
+    .parameters .param-value {
+        font-weight: 600;
+        margin-left: 3px;
+    }
+
+    .section-divider {
+        margin: 20px 0 14px;
+        border: none;
+        border-top: 1px solid #eee;
+    }
+
+    .control-title {
+        font-size: 13px;
+        color: #666;
+        margin-bottom: 10px;
+    }
+
+    .dn-control {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        background: #f7f7f8;
+        border: 1px solid #e5e5e5;
+        border-radius: 8px;
+        padding: 14px 16px;
+    }
+
+    .dn-control input[type="range"] {
+        flex: 1;
+        accent-color: #222;
+    }
+
+    .dn-readout {
+        min-width: 90px;
+        font-size: 18px;
+        font-weight: 700;
+        text-align: center;
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        padding: 6px 10px;
+    }
+
+    .dn-range-labels {
+        display: flex;
+        justify-content: space-between;
+        font-size: 11px;
+        color: #999;
+        margin-top: 4px;
+    }
+
+    label {
+        font-size: 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+    }
+
+    input {
+        padding: 8px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        font-size: 14px;
+    }
+
+    button {
+        margin-top: 16px;
+        padding: 10px 24px;
+        border: none;
+        border-radius: 6px;
+        background: #222;
+        color: white;
+        font-size: 15px;
+        cursor: pointer;
+    }
+
+    button:hover {
+        background: #444;
+    }
+
+    .results {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 10px;
+        margin-top: 20px;
+    }
+
+    .result {
+        background: #eee;
+        padding: 12px;
+        border-radius: 6px;
+    }
+
+    .result-title {
+        font-size: 12px;
+        color: #666;
+    }
+
+    .result-value {
+        font-size: 18px;
+        margin-top: 4px;
+    }
+
+    canvas {
+        display: block;
+        width: 100%;
+        height: 220px;
+        background: black;
+        image-rendering: auto;
+    }
+
+    .canvas-wrapper {
+        overflow-x: auto;
+    }
+
+    #status {
+        margin-top: 10px;
+        color: #555;
+    }
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>Gaussian Beam Propagation</h1>
+<p class="method-note">Beam Propagation Method (BPM) — paraxial approximation 기반 계산입니다.</p>
+
+<div class="panel">
+
+    <div class="parameters">
+
+        <span class="param-item"><span class="param-label">Grid N</span><span class="param-value">128</span></span>
+        <input id="N" type="hidden" value="128">
+
+        <span class="param-item"><span class="param-label">w</span><span class="param-value">2.5</span></span>
+        <input id="w" type="hidden" value="2.5">
+
+        <span class="param-item"><span class="param-label">a</span><span class="param-value">4</span></span>
+        <input id="a" type="hidden" value="4">
+
+        <span class="param-item"><span class="param-label">n0</span><span class="param-value">1.4629</span></span>
+        <input id="n0" type="hidden" value="1.4629">
+
+        <span class="param-item"><span class="param-label">λ</span><span class="param-value">1.55</span></span>
+        <input id="lambda" type="hidden" value="1.55">
+
+        <span class="param-item"><span class="param-label">dz</span><span class="param-value">5</span></span>
+        <input id="dz" type="hidden" value="5">
+
+        <span class="param-item"><span class="param-label">Iteration</span><span class="param-value">100</span></span>
+        <input id="iteration" type="hidden" value="100">
+
+    </div>
+
+    <hr class="section-divider">
+
+    <div class="control-title">dn % 조절</div>
+
+    <div class="dn-control">
+        <span style="font-size:12px; color:#999;">0.01</span>
+        <input id="dnPercent" type="range" min="0.01" max="0.99" step="0.01" value="0.4"
+            oninput="document.getElementById('dnPercentLabel').textContent = parseFloat(this.value).toFixed(2);">
+        <span style="font-size:12px; color:#999;">0.99</span>
+        <div class="dn-readout"><span id="dnPercentLabel">0.40</span></div>
+    </div>
+
+    <button onclick="runSimulation()">Run</button>
+
+    <div id="status"></div>
+
+    <div class="results">
+
+        <div class="result">
+            <div class="result-title">n_core</div>
+            <div class="result-value" id="nCore">-</div>
+        </div>
+
+        <div class="result">
+            <div class="result-title">n_clad</div>
+            <div class="result-value" id="nClad">-</div>
+        </div>
+
+        <div class="result">
+            <div class="result-title">NA</div>
+            <div class="result-value" id="NA">-</div>
+        </div>
+
+        <div class="result">
+            <div class="result-title">V parameter</div>
+            <div class="result-value" id="V">-</div>
+        </div>
+
+    </div>
+
+</div>
+
+
+<div class="panel">
+
+    <h2>Propagation</h2>
+
+    <div class="canvas-wrapper">
+        <canvas id="canvas"></canvas>
+    </div>
+
+</div>
+
+
+<script>
+
+/* ============================================================
+   Complex number
+   ============================================================ */
+
+class Complex {
+
+    constructor(re = 0, im = 0) {
+        this.re = re;
+        this.im = im;
+    }
+
+    add(b) {
+        return new Complex(
+            this.re + b.re,
+            this.im + b.im
+        );
+    }
+
+    mul(b) {
+        return new Complex(
+            this.re*b.re - this.im*b.im,
+            this.re*b.im + this.im*b.re
+        );
+    }
+
+    scale(s) {
+        return new Complex(
+            this.re*s,
+            this.im*s
+        );
+    }
+
+    abs2() {
+        return this.re*this.re + this.im*this.im;
+    }
+}
+
+
+/* ============================================================
+   1D FFT
+   MATLAB FFT convention
+   ============================================================ */
+
+function fft1D(input, inverse = false) {
+
+    const N = input.length;
+
+    let output = new Array(N);
+
+    for(let i=0;i<N;i++){
+        output[i] = new Complex(
+            input[i].re,
+            input[i].im
+        );
+    }
+
+    /* bit reversal */
+
+    let j = 0;
+
+    for(let i=1;i<N;i++){
+
+        let bit = N >> 1;
+
+        while(j & bit){
+            j ^= bit;
+            bit >>= 1;
+        }
+
+        j ^= bit;
+
+        if(i < j){
+
+            const temp = output[i];
+
+            output[i] = output[j];
+            output[j] = temp;
+        }
+    }
+
+
+    /* Cooley-Tukey */
+
+    for(let len=2;len<=N;len<<=1){
+
+        const angle =
+            (inverse ? 2 : -2) *
+            Math.PI / len;
+
+        const wlen = new Complex(
+            Math.cos(angle),
+            Math.sin(angle)
+        );
+
+        for(let i=0;i<N;i+=len){
+
+            let w = new Complex(1,0);
+
+            for(let j=0;j<len/2;j++){
+
+                const u = output[i+j];
+
+                const v = output[i+j+len/2].mul(w);
+
+                output[i+j] =
+                    u.add(v);
+
+                output[i+j+len/2] =
+                    u.add(v.scale(-1));
+
+                w = w.mul(wlen);
+            }
+        }
+    }
+
+
+    /* MATLAB ifft normalization */
+
+    if(inverse){
+
+        for(let i=0;i<N;i++){
+
+            output[i].re /= N;
+            output[i].im /= N;
+        }
+    }
+
+    return output;
+}
+
+
+/* ============================================================
+   2D FFT
+   ============================================================ */
+
+function fft2D(A, inverse=false){
+
+    const N = A.length;
+
+    let B = new Array(N);
+
+    for(let y=0;y<N;y++){
+
+        B[y] = fft1D(A[y], inverse);
+    }
+
+
+    /* columns */
+
+    for(let x=0;x<N;x++){
+
+        let column = new Array(N);
+
+        for(let y=0;y<N;y++){
+            column[y] = B[y][x];
+        }
+
+        column = fft1D(column, inverse);
+
+        for(let y=0;y<N;y++){
+            B[y][x] = column[y];
+        }
+    }
+
+    return B;
+}
+
+
+/* ============================================================
+   MATLAB fftshift
+   ============================================================ */
+
+function fftshift2D(A){
+
+    const N = A.length;
+
+    const B = new Array(N);
+
+    const half = N/2;
+
+    for(let y=0;y<N;y++){
+
+        B[y] = new Array(N);
+
+        for(let x=0;x<N;x++){
+
+            const yy = (y + half) % N;
+            const xx = (x + half) % N;
+
+            B[y][x] = A[yy][xx];
+        }
+    }
+
+    return B;
+}
+
+
+/* ============================================================
+   Matrix utilities
+   ============================================================ */
+
+function createComplexMatrix(N){
+
+    const A = new Array(N);
+
+    for(let y=0;y<N;y++){
+
+        A[y] = new Array(N);
+
+        for(let x=0;x<N;x++){
+            A[y][x] = new Complex(0,0);
+        }
+    }
+
+    return A;
+}
+
+
+/* ============================================================
+   Main simulation
+   ============================================================ */
+
+function runSimulation(){
+
+    const N =
+        parseInt(document.getElementById("N").value);
+
+    const w =
+        parseFloat(document.getElementById("w").value);
+
+    const a =
+        parseFloat(document.getElementById("a").value);
+
+    const n0 =
+        parseFloat(document.getElementById("n0").value);
+
+    const lambda =
+        parseFloat(document.getElementById("lambda").value);
+
+    const dz =
+        parseFloat(document.getElementById("dz").value);
+
+    const iteration =
+        parseInt(document.getElementById("iteration").value);
+
+    const dnPercent =
+        parseFloat(document.getElementById("dnPercent").value);
+
+
+    /* ========================================================
+       spatial grid
+
+       MATLAB:
+       t=linspace(-62.5,62.5,N)
+       ======================================================== */
+
+    const t = new Array(N);
+
+    for(let i=0;i<N;i++){
+
+        t[i] =
+            -62.5 +
+            i*(125/(N-1));
+    }
+
+    const dt = t[1]-t[0];
+
+    const fs = 1/dt;
+
+    const df = fs/N;
+
+
+    /* ========================================================
+       wave vector
+       ======================================================== */
+
+    const k0 =
+        2*Math.PI/lambda*n0;
+
+
+    /* ========================================================
+       frequency domain
+
+       MATLAB:
+       f=(-N/2:N/2-1)*df
+       ======================================================== */
+
+    const f = new Array(N);
+
+    for(let i=0;i<N;i++){
+
+        f[i] =
+            (-N/2+i)*df;
+    }
+
+    const wv = new Array(N);
+
+    for(let i=0;i<N;i++){
+
+        wv[i] =
+            2*Math.PI*f[i];
+    }
+
+
+    /* ========================================================
+       H_prop
+
+       MATLAB:
+       H_prop =
+       exp(-1j*r_wv.^2*dz/(2*k0))
+       ======================================================== */
+
+    const Hprop =
+        createComplexMatrix(N);
+
+
+    for(let y=0;y<N;y++){
+
+        for(let x=0;x<N;x++){
+
+            const rwv2 =
+                wv[x]*wv[x] +
+                wv[y]*wv[y];
+
+            const phase =
+                -rwv2*dz/(2*k0);
+
+            Hprop[y][x] =
+                new Complex(
+                    Math.cos(phase),
+                    Math.sin(phase)
+                );
+        }
+    }
+
+
+    /* ========================================================
+       waveguide refractive index
+
+       MATLAB:
+       dn_step = n0*dn_percent*0.01
+       dn = double(r<a)*dn_step
+       ======================================================== */
+
+    const dnStep =
+        n0*dnPercent*0.01;
+
+
+    const Hdn =
+        createComplexMatrix(N);
+
+
+    const E0 =
+        createComplexMatrix(N);
+
+
+    for(let y=0;y<N;y++){
+
+        for(let x=0;x<N;x++){
+
+            const r =
+                Math.sqrt(
+                    t[x]*t[x] +
+                    t[y]*t[y]
+                );
+
+
+            /* Gaussian */
+
+            const E =
+                Math.exp(
+                    -r*r/(w*w)
+                );
+
+            E0[y][x] =
+                new Complex(E,0);
+
+
+            /* refractive index */
+
+            const dn =
+                (r < a) ?
+                dnStep :
+                0;
+
+
+            const phase =
+                k0*dn*dz;
+
+
+            Hdn[y][x] =
+                new Complex(
+                    Math.cos(phase),
+                    Math.sin(phase)
+                );
+        }
+    }
+
+
+    /* ========================================================
+       fiber parameters
+       ======================================================== */
+
+    const nCore =
+        n0 + dnStep;
+
+    const NA =
+        Math.sqrt(
+            nCore*nCore -
+            n0*n0
+        );
+
+    const V =
+        (2*Math.PI*a/lambda)*NA;
+
+
+    document.getElementById("nCore").textContent =
+        nCore.toFixed(6);
+
+    document.getElementById("nClad").textContent =
+        n0.toFixed(6);
+
+    document.getElementById("NA").textContent =
+        NA.toFixed(6);
+
+    document.getElementById("V").textContent =
+        V.toFixed(6);
+
+
+    /* ========================================================
+       E_history
+
+       MATLAB:
+       E_history=zeros(N,iteration+1)
+
+       여기서는 complex를 그대로 저장
+       ======================================================== */
+
+    const Ehistory =
+        new Array(iteration+1);
+
+
+    /* initial field */
+
+    let A = E0;
+
+
+    /*
+       MATLAB:
+       E_history(:,1)=A(N/2,:);
+
+       MATLAB의 N/2 번째 row.
+       JS에서는 index = N/2 - 1
+    */
+
+    const centerRow =
+        N/2 - 1;
+
+
+    Ehistory[0] =
+        new Array(N);
+
+    for(let x=0;x<N;x++){
+
+        Ehistory[0][x] =
+            A[centerRow][x];
+    }
+
+
+    /* ========================================================
+       propagation loop
+       ======================================================== */
+
+    for(let k=0;k<iteration;k++){
+
+        document.getElementById("status").textContent =
+            `Calculating... ${k+1} / ${iteration}`;
+
+
+        /*
+           MATLAB:
+
+           A = fftshift(
+                   fft2(
+                       A .* H_dn
+                   )
+               );
+        */
+
+
+        for(let y=0;y<N;y++){
+
+            for(let x=0;x<N;x++){
+
+                A[y][x] =
+                    A[y][x].mul(
+                        Hdn[y][x]
+                    );
+            }
+        }
+
+
+        A =
+            fft2D(A,false);
+
+        A =
+            fftshift2D(A);
+
+
+        /*
+           MATLAB:
+
+           A=A.*H_prop;
+        */
+
+        for(let y=0;y<N;y++){
+
+            for(let x=0;x<N;x++){
+
+                A[y][x] =
+                    A[y][x].mul(
+                        Hprop[y][x]
+                    );
+            }
+        }
+
+
+        /*
+           MATLAB:
+
+           A=ifft2(fftshift(A));
+        */
+
+        A =
+            fftshift2D(A);
+
+        A =
+            fft2D(A,true);
+
+
+        /*
+           E_history(:,k+1)
+        */
+
+        Ehistory[k+1] =
+            new Array(N);
+
+        for(let x=0;x<N;x++){
+
+            Ehistory[k+1][x] =
+                A[centerRow][x];
+        }
+    }
+
+
+    document.getElementById("status").textContent =
+        "Calculation complete";
+
+
+    /* ========================================================
+       Draw MATLAB equivalent:
+
+       surf(z_plot,t,-abs(E_history).^2)
+       view(2)
+       colormap turbo
+       ======================================================== */
+
+    drawResult(
+        Ehistory,
+        t,
+        dz,
+        iteration
+    );
+}
+
+
+/* ============================================================
+   Draw result
+   ============================================================ */
+
+function turboColor(x){
+
+    const stops = [
+        [0.00, [48, 18, 59]],
+        [0.10, [54, 79, 157]],
+        [0.20, [40, 123, 177]],
+        [0.30, [31, 161, 135]],
+        [0.40, [86, 190, 108]],
+        [0.50, [167, 220, 77]],
+        [0.60, [226, 239, 72]],
+        [0.70, [250, 191, 64]],
+        [0.80, [247, 126, 55]],
+        [0.90, [220, 61, 45]],
+        [1.00, [122, 4, 3]]
+    ];
+
+    x = Math.max(0, Math.min(1, x));
+
+    for(let i=0; i<stops.length-1; i++){
+        const x1 = stops[i][0];
+        const x2 = stops[i+1][0];
+
+        if(x <= x2){
+            const q = (x-x1)/(x2-x1);
+
+            return [
+                Math.round(stops[i][1][0] + q*(stops[i+1][1][0]-stops[i][1][0])),
+                Math.round(stops[i][1][1] + q*(stops[i+1][1][1]-stops[i][1][1])),
+                Math.round(stops[i][1][2] + q*(stops[i+1][1][2]-stops[i][1][2]))
+            ];
+        }
+    }
+
+    return stops[stops.length-1][1];
+}
+
+
+function drawResult(
+    Ehistory,
+    t,
+    dz,
+    iteration
+){
+
+    const N = t.length;
+
+    const canvas =
+        document.getElementById("canvas");
+
+    canvas.width =
+        iteration+1;
+
+    canvas.height =
+        N;
+
+
+    const ctx =
+        canvas.getContext("2d");
+
+
+    const image =
+        ctx.createImageData(
+            iteration+1,
+            N
+        );
+
+
+    /* find maximum intensity */
+
+    let maxIntensity = 0;
+
+
+    for(let z=0;z<=iteration;z++){
+
+        for(let x=0;x<N;x++){
+
+            const E =
+                Ehistory[z][x];
+
+            const intensity =
+                E.abs2();
+
+            if(intensity > maxIntensity){
+                maxIntensity =
+                    intensity;
+            }
+        }
+    }
+
+
+    /*
+       MATLAB:
+
+       -abs(E_history).^2
+
+       MATLAB colormap turbo에서는
+       음수 값이므로 큰 intensity일수록
+       어두워지는 방향으로 표현됨.
+    */
+
+    for(let z=0;z<=iteration;z++){
+
+        for(let x=0;x<N;x++){
+
+            const E =
+                Ehistory[z][x];
+
+            const intensity =
+                E.abs2();
+
+
+            let value =
+                intensity/maxIntensity;
+
+            value =
+                Math.max(
+                    0,
+                    Math.min(1,value)
+                );
+
+            /*
+               매쉬 z값(-abs(E)^2)에 음수를 곱한 효과:
+               turbo 컬러맵 방향을 뒤집어서
+               강한 세기가 반대쪽 색(진한 파랑)으로 표현되게 함
+            */
+
+            value =
+                1 - value;
+
+
+            /*
+               grayscale
+
+               MATLAB의 -abs(E).^2 + turbo
+               에 대응하여 강한 빛 = 밝은 노랑 계열
+            */
+
+            const c = turboColor(value);
+
+
+            /*
+               MATLAB 배열:
+
+               row = t
+
+               화면에서는 위에서 아래로 증가하므로
+               y를 뒤집음
+            */
+
+            const py =
+                N-1-x;
+
+            const px =
+                z;
+
+
+            const index =
+                (py*(iteration+1)+px)*4;
+
+
+            image.data[index] =
+                c[0];
+
+            image.data[index+1] =
+                c[1];
+
+            image.data[index+2] =
+                c[2];
+
+            image.data[index+3] =
+                255;
+        }
+    }
+
+
+    ctx.putImageData(
+        image,
+        0,
+        0
+    );
+}
+
+
+/* ============================================================
+   Run automatically
+   ============================================================ */
+
+runSimulation();
+
+</script>
+
+</body>
+</html>
