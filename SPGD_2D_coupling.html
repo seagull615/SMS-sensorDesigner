@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2D SPGD Coupling Simulation</title>
+<style>
+    body { font-family: Arial, sans-serif; margin: 20px; background:#fafafa; color:#222; }
+    h1 { margin-bottom: 8px; }
+    .controls { display:grid; grid-template-columns: repeat(3, minmax(180px,1fr)); gap:12px; max-width:900px; }
+    .control { background:white; padding:10px 12px; border:1px solid #ddd; border-radius:8px; }
+    label { display:block; font-size:14px; margin-bottom:6px; }
+    input[type=range] { width:100%; }
+    .value { font-weight:bold; }
+    button { margin:15px 8px 15px 0; padding:9px 18px; border:0; border-radius:6px; cursor:pointer; background:#333; color:white; }
+    button:hover { opacity:.85; }
+    canvas { background:white; border:1px solid #ddd; border-radius:6px; }
+    .plots { display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-top:10px; }
+    .plotbox { background:white; padding:10px; border:1px solid #ddd; border-radius:8px; }
+    #fieldCanvas { width:520px; max-width:100%; height:auto; image-rendering:auto; }
+    .result { font-family:monospace; margin:8px 0 15px; }
+    @media(max-width:900px){ .plots{grid-template-columns:1fr;} .controls{grid-template-columns:1fr 1fr;} }
+.field-wrap { position:relative; display:inline-block; max-width:100%; }
+    #fieldCanvas { cursor:crosshair; }
+    .hint { font-size:13px; color:#666; margin:4px 0 8px; }
+</style>
+</head>
+<body>
+
+<h1>2D SPGD Coupling Efficiency Simulation</h1>
+<p>MATLAB 코드의 2D SPGD 정렬 과정을 그대로 JavaScript로 구현했습니다.</p>
+
+<div class="controls">
+    <div class="control">
+        <label>w<sub>SMF</sub> = <span id="wSmfVal" class="value">5</span></label>
+        <input id="wSmf" type="range" min="1" max="15" step="0.1" value="5">
+    </div>
+    <div class="control">
+        <label>w<sub>align</sub> = <span id="wAlignVal" class="value">1</span></label>
+        <input id="wAlign" type="range" min="0.5" max="10" step="0.1" value="1">
+    </div>
+    <div class="control">
+        <label>Gain = <span id="gainVal" class="value">60</span></label>
+        <input id="gain" type="range" min="1" max="150" step="1" value="60">
+    </div>
+    <div class="control">
+        <label>δ amplitude = <span id="deltaVal" class="value">0.3</span></label>
+        <input id="deltaAmp" type="range" min="0.05" max="1" step="0.05" value="0.3">
+    </div>
+    <div class="control">
+        <label>Iterations = <span id="iterVal" class="value">300</span></label>
+        <input id="nIter" type="range" min="50" max="1000" step="50" value="300">
+    </div>
+</div>
+
+<div class="plotbox" style="margin-top:18px; max-width:900px;">
+    <h3>Initial positioned beams</h3>
+    <div class="hint">검은 점(초기 정렬 위치)을 마우스로 드래그해 (x₀, y₀)를 설정한 뒤, 아래 "Run SPGD" 버튼을 누르세요. 붉은 점은 SMF 중심(0,0)입니다.</div>
+    <div class="field-wrap">
+        <canvas id="fieldCanvas" width="700" height="520"></canvas>
+    </div>
+</div>
+
+<button id="runBtn">Run SPGD</button>
+<button id="resetBtn">Reset</button>
+
+<div class="result" id="result">Final eta = -</div>
+
+<div class="plots">
+    <div class="plotbox">
+        <canvas id="etaCanvas" width="700" height="400"></canvas>
+    </div>
+    <div class="plotbox">
+        <canvas id="posCanvas" width="700" height="400"></canvas>
+    </div>
+</div>
+
+<script>
+function wTrue(id){
+    return document.getElementById(id).value;
+}
+
+const GRID = 128;
+let selectedX0 = 8;
+let selectedY0 = 3;
+let draggingCrosshair = false;
+const TMIN = -50, TMAX = 50;
+const t = new Float64Array(GRID);
+const X = new Float64Array(GRID * GRID);
+const Y = new Float64Array(GRID * GRID);
+const R2 = new Float64Array(GRID * GRID);
+
+for(let i=0;i<GRID;i++) t[i] = TMIN + (TMAX-TMIN)*i/(GRID-1);
+for(let j=0;j<GRID;j++){
+    for(let i=0;i<GRID;i++){
+        const p=j*GRID+i;
+        X[p]=t[i];
+        Y[p]=t[j];
+        R2[p]=X[p]*X[p]+Y[p]*Y[p];
+    }
+}
+
+function beam1(x0,y0,w){
+    const out = new Float64Array(GRID*GRID);
+    const inv = 1/(w*w);
+    for(let p=0;p<out.length;p++){
+        const dx=X[p]-x0, dy=Y[p]-y0;
+        out[p]=Math.exp(-(dx*dx+dy*dy)*inv);
+    }
+    return out;
+}
+
+function etaEVA(a,b){
+    let ab=0, aa=0, bb=0;
+    for(let i=0;i<a.length;i++){
+        ab += a[i]*b[i];
+        aa += a[i]*a[i];
+        bb += b[i]*b[i];
+    }
+    return (ab*ab)/(aa*bb);
+}
+
+function makeSMF(w){
+    const out = new Float64Array(GRID*GRID);
+    const inv=1/(w*w);
+    for(let p=0;p<out.length;p++) out[p]=Math.exp(-R2[p]*inv);
+    return out;
+}
+
+const etaCanvas=document.getElementById("etaCanvas");
+const posCanvas=document.getElementById("posCanvas");
+const fieldCanvas=document.getElementById("fieldCanvas");
+
+function clearCanvas(c){
+    const ctx=c.getContext("2d");
+    ctx.clearRect(0,0,c.width,c.height);
+    ctx.fillStyle="white";
+    ctx.fillRect(0,0,c.width,c.height);
+}
+
+function plotLine(canvas, series, labels, yMin=null, yMax=null){
+    const ctx=canvas.getContext("2d");
+    const W=canvas.width,H=canvas.height;
+    clearCanvas(canvas);
+
+    const L=60,R=20,T=35,B=45;
+    const pw=W-L-R, ph=H-T-B;
+
+    let all=[];
+    series.forEach(s=>all=all.concat(s.data));
+    if(yMin===null) yMin=Math.min(...all);
+    if(yMax===null) yMax=Math.max(...all);
+    if(Math.abs(yMax-yMin)<1e-12){yMax+=1;yMin-=1;}
+
+    ctx.strokeStyle="#999"; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(L,T); ctx.lineTo(L,T+ph); ctx.lineTo(L+pw,T+ph); ctx.stroke();
+
+    ctx.fillStyle="#333"; ctx.font="14px Arial";
+    for(let k=0;k<=5;k++){
+        const yy=T+ph-k*ph/5;
+        const val=yMin+(yMax-yMin)*k/5;
+        ctx.fillText(val.toFixed(3),5,yy+4);
+        ctx.strokeStyle="#eee";
+        ctx.beginPath(); ctx.moveTo(L,yy); ctx.lineTo(L+pw,yy); ctx.stroke();
+    }
+
+    series.forEach((s,si)=>{
+        ctx.strokeStyle=s.stroke;
+        ctx.lineWidth=2;
+        ctx.beginPath();
+        s.data.forEach((v,i)=>{
+            const xx=L+i*(pw/(s.data.length-1));
+            const yy=T+ph-(v-yMin)/(yMax-yMin)*ph;
+            if(i===0) ctx.moveTo(xx,yy); else ctx.lineTo(xx,yy);
+        });
+        ctx.stroke();
+    });
+
+    ctx.fillStyle="#222";
+    ctx.fillText("Iteration",L+pw/2-25,H-10);
+    ctx.save();
+    ctx.translate(15,T+ph/2+25); ctx.rotate(-Math.PI/2);
+    ctx.fillText(labels.y,0,0); ctx.restore();
+
+    ctx.font="bold 15px Arial";
+    ctx.fillText(labels.title,L,T-12);
+}
+
+function drawField(x0,y0,wSmf,wAlign){
+    const ctx=fieldCanvas.getContext("2d");
+    const W=fieldCanvas.width,H=fieldCanvas.height;
+    clearCanvas(fieldCanvas);
+
+    const left=65, top=35, size=Math.min(W-100,H-75);
+
+    // Plain white plot area
+    ctx.fillStyle="#fff";
+    ctx.fillRect(left,top,size,size);
+    ctx.strokeStyle="#777"; ctx.strokeRect(left,top,size,size);
+
+    ctx.fillStyle="#333"; ctx.font="13px Arial";
+    ctx.fillText("-50",left-8,top+size+18);
+    ctx.fillText("0",left+size/2-4,top+size+18);
+    ctx.fillText("50",left+size-8,top+size+18);
+    ctx.fillText("x",left+size/2,top+size+38);
+    ctx.save();
+    ctx.translate(20,top+size/2);ctx.rotate(-Math.PI/2);ctx.fillText("y",0,0);ctx.restore();
+
+    // Black spot: SMF reference center (0,0), rendered as Gaussian intensity
+    const smfCx = left + (0-TMIN)/(TMAX-TMIN)*size;
+    const smfCy = top + (0-TMIN)/(TMAX-TMIN)*size;
+    const smfR = Math.max(4, (wSmf/(TMAX-TMIN))*size);
+
+    drawGaussianSpot(ctx, smfCx, smfCy, smfR, [0,0,0]);
+
+    // Actual SMF physical boundary circle (radius = 62.5, e.g. 125um cladding diameter)
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(left,top,size,size);
+    ctx.clip();
+    const smfPhysR = 62.5/(TMAX-TMIN)*size;
+    ctx.strokeStyle="#000";
+    ctx.lineWidth=1.5;
+    ctx.setLineDash([5,4]);
+    ctx.beginPath();
+    ctx.arc(smfCx,smfCy,smfPhysR,0,2*Math.PI);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+
+    ctx.fillStyle="#000";
+    ctx.font="13px Arial";
+    ctx.fillText("SMF (0,0)", smfCx+smfR*0.6+6, smfCy-smfR*0.6-2 < top+12 ? smfCy+4 : smfCy-smfR*0.6-2);
+
+    // Red spot: draggable probe-beam initial alignment position (x0,y0), Gaussian intensity
+    const cx = left + (selectedX0-TMIN)/(TMAX-TMIN)*size;
+    const cy = top + (selectedY0-TMIN)/(TMAX-TMIN)*size;
+    const alignR = Math.max(4, (wAlign/(TMAX-TMIN))*size);
+
+    drawGaussianSpot(ctx, cx, cy, alignR, [227,30,30]);
+
+    ctx.fillStyle="#a00";
+    ctx.font="13px Arial";
+    ctx.fillText(`x₀=${selectedX0.toFixed(1)}, y₀=${selectedY0.toFixed(1)}`, cx+alignR*0.6+6, cy-alignR*0.6-2 < top+12 ? cy+4 : cy-alignR*0.6-2);
+
+    ctx.font="bold 15px Arial";
+    ctx.fillStyle="#222";
+    ctx.fillText("검은 점: SMF 중심   /   붉은 점: 프로브 빔 초기 위치 (드래그 가능)",left,18);
+}
+
+// Draws a spot whose opacity follows the Gaussian INTENSITY (field squared): I = exp(-2 r^2 / w^2)
+function drawGaussianSpot(ctx, cx, cy, w, rgb){
+    const extent = w*2.5; // render out to where the intensity is essentially zero
+    const grad = ctx.createRadialGradient(cx,cy,0,cx,cy,extent);
+    const steps = 12;
+    for(let i=0;i<=steps;i++){
+        const frac = i/steps;
+        const r = frac*extent;
+        const intensity = Math.exp(-2*(r*r)/(w*w)); // field^2
+        grad.addColorStop(frac, `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${intensity})`);
+    }
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(cx,cy,extent,0,2*Math.PI);
+    ctx.fill();
+}
+
+function updateLabels(){
+    const ids=["wSmf","wAlign","gain","deltaAmp","nIter"];
+    const vals=["wSmfVal","wAlignVal","gainVal","deltaVal","iterVal"];
+    ids.forEach((id,i)=>document.getElementById(vals[i]).textContent=document.getElementById(id).value);
+    drawField(selectedX0,selectedY0,+wTrue("wSmf"),+wTrue("wAlign"));
+}
+
+["wSmf","wAlign","gain","deltaAmp","nIter"].forEach(id=>{
+    document.getElementById(id).addEventListener("input",updateLabels);
+});
+
+function runSPGD(){
+    const wSmf=+wTrue("wSmf");
+    const wAlign=+wTrue("wAlign");
+    const x0True=selectedX0;
+    const y0True=selectedY0;
+    const gain=+wTrue("gain");
+    const deltaAmp=+wTrue("deltaAmp");
+    const nIter=+wTrue("nIter");
+
+    const E_smf=makeSMF(wSmf);
+    let u=[x0True,y0True];
+    const uX=[],uY=[],etaHist=[];
+
+    for(let k=0;k<nIter;k++){
+        const d1=(Math.random()<0.5?-1:1)*deltaAmp;
+        const d2=(Math.random()<0.5?-1:1)*deltaAmp;
+
+        const Eplus=beam1(u[0]+d1,u[1]+d2,wAlign);
+        const Jplus=etaEVA(E_smf,Eplus);
+
+        const Eminus=beam1(u[0]-d1,u[1]-d2,wAlign);
+        const Jminus=etaEVA(E_smf,Eminus);
+
+        const dJ=Jplus-Jminus;
+        u[0]+=gain*dJ*d1;
+        u[1]+=gain*dJ*d2;
+
+        uX.push(u[0]);
+        uY.push(u[1]);
+        etaHist.push(etaEVA(E_smf,beam1(u[0],u[1],wAlign)));
+    }
+
+    plotLine(etaCanvas,[{data:etaHist,stroke:"#222"}],
+        {title:"SPGD Coupling Efficiency Convergence",y:"η"},0,1);
+
+    const ymin=Math.min(...uX,...uY), ymax=Math.max(...uX,...uY);
+    const pad=Math.max(1,(ymax-ymin)*0.1);
+    plotLine(posCanvas,[
+        {data:uX,stroke:"#c33"},
+        {data:uY,stroke:"#36c"}
+    ],{title:"Alignment Parameter Convergence",y:"Position"},ymin-pad,ymax+pad);
+
+    const finalEta=etaHist[etaHist.length-1];
+    document.getElementById("result").textContent =
+        `Final eta = ${finalEta.toFixed(4)} at (x0,y0) = (${u[0].toFixed(3)}, ${u[1].toFixed(3)})`;
+
+    drawField(x0True,y0True,wSmf,wAlign);
+}
+
+document.getElementById("runBtn").addEventListener("click",runSPGD);
+document.getElementById("resetBtn").addEventListener("click",()=>{
+    document.getElementById("wSmf").value=5;
+    document.getElementById("wAlign").value=1;
+    selectedX0=8;
+    selectedY0=3;
+    document.getElementById("gain").value=60;
+    document.getElementById("deltaAmp").value=0.3;
+    document.getElementById("nIter").value=300;
+    updateLabels();
+    document.getElementById("result").textContent="Final eta = -";
+    clearCanvas(etaCanvas); clearCanvas(posCanvas);
+});
+
+// Mouse drag interaction for selecting x0_true, y0_true
+fieldCanvas.addEventListener("mousedown", e=>{
+    draggingCrosshair=true;
+    setCrosshairFromMouse(e);
+});
+window.addEventListener("mousemove", e=>{
+    if(draggingCrosshair) setCrosshairFromMouse(e);
+});
+window.addEventListener("mouseup", ()=>{
+    draggingCrosshair=false;
+});
+
+function setCrosshairFromMouse(e){
+    const rect=fieldCanvas.getBoundingClientRect();
+    const left=65, top=35;
+    const size=Math.min(fieldCanvas.width-100,fieldCanvas.height-75);
+
+    const mx=(e.clientX-rect.left)*(fieldCanvas.width/rect.width);
+    const my=(e.clientY-rect.top)*(fieldCanvas.height/rect.height);
+
+    if(mx<left || mx>left+size || my<top || my>top+size) return;
+
+    selectedX0=TMIN+(mx-left)/size*(TMAX-TMIN);
+    selectedY0=TMIN+(my-top)/size*(TMAX-TMIN);
+
+    drawField(selectedX0,selectedY0,+wTrue("wSmf"),+wTrue("wAlign"));
+}
+
+updateLabels();
+runSPGD();
+</script>
+</body>
+</html>
