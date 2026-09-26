@@ -176,6 +176,16 @@
         flex-direction: column;
     }
 
+    @media (max-width: 700px) {
+        .prop-eta-row {
+            flex-direction: column;
+        }
+
+        .prop-eta-row .panel.eta-panel {
+            width: 100%;
+        }
+    }
+
     .eta-vertical-layout {
         display: flex;
         flex-direction: column;
@@ -274,13 +284,13 @@
     canvas {
         display: block;
         width: 100%;
-        height: 150px;
+        height: auto;
         background: black;
         image-rendering: auto;
     }
 
     .canvas-wrapper {
-        overflow-x: auto;
+        width: 100%;
     }
 
     #status {
@@ -1478,6 +1488,8 @@ function turboColor(x){
 }
 
 
+let lastDrawArgs = null;
+
 function drawResult(
     Ehistory,
     t,
@@ -1487,40 +1499,69 @@ function drawResult(
     P2
 ){
 
+    /* 창 크기가 바뀔 때(예: 모바일 회전) 재시뮬레이션 없이
+       다시 그릴 수 있도록 마지막 인자를 저장해 둠 */
+
+    lastDrawArgs = {
+        Ehistory: Ehistory,
+        t: t,
+        dz: dz,
+        iteration: iteration,
+        P1: P1,
+        P2: P2
+    };
+
     const N = t.length;
 
-    /* intensity plot이 차지하는 영역 (데이터 그리드 기준, 논리 픽셀) */
+    /* intensity 데이터의 원본 해상도 (시뮬레이션 격자 크기,
+       화면 표시 크기와는 별개) */
 
-    const plotW = iteration+1;
-    const plotH = N;
+    const dataW = iteration+1;
+    const dataH = N;
 
-    /* 축 눈금/라벨을 위한 여백 (논리 픽셀) */
+    /* 축 눈금/라벨을 위한 여백 (화면상 CSS 픽셀 고정값 —
+       데이터 크기와 무관하게 항상 같은 크기로 그려짐) */
 
     const marginLeft   = 50;
     const marginRight  = 12;
     const marginTop    = 10;
     const marginBottom = 30;
 
-    const logicalW = plotW + marginLeft + marginRight;
-    const logicalH = plotH + marginTop  + marginBottom;
-
-    /* 화면 흐림 방지를 위해 실제 캔버스 해상도는
-       논리 크기의 SCALE배로 렌더링 */
-
-    const SCALE = 2;
+    /* 실제로 화면에 그려질 플롯 크기는 "컨테이너 너비" 기준으로 정함
+       (데이터 샘플 수와 무관하게) — 이렇게 분리해야 모바일처럼
+       화면이 좁아도 여백/글자가 찌그러지거나 잘리지 않음 */
 
     const canvas =
         document.getElementById("canvas");
 
-    canvas.width  = logicalW*SCALE;
-    canvas.height = logicalH*SCALE;
+    const wrapper =
+        canvas.parentElement;
+
+    const wrapperWidth =
+        wrapper.clientWidth || 320;
+
+    const logicalW = Math.max(220, Math.round(wrapperWidth));
+    const plotW    = logicalW - marginLeft - marginRight;
+    const plotH    = 150; /* 플롯 높이(CSS 픽셀), 데이터 크기와 무관하게 고정 */
+    const logicalH = plotH + marginTop + marginBottom;
+
+    /* 화면 흐림 방지를 위해 실제 캔버스 해상도는
+       기기 픽셀비(devicePixelRatio)만큼 올려서 렌더링 */
+
+    const DPR = Math.min(window.devicePixelRatio || 1, 3);
+
+    canvas.style.width  = logicalW + "px";
+    canvas.style.height = logicalH + "px";
+
+    canvas.width  = Math.round(logicalW*DPR);
+    canvas.height = Math.round(logicalH*DPR);
 
     const ctx =
         canvas.getContext("2d");
 
-    ctx.scale(SCALE, SCALE);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
 
-    /* 이후 모든 좌표는 논리 픽셀 기준으로 그리면 됨 */
+    /* 이후 모든 좌표는 논리(CSS) 픽셀 기준으로 그리면 됨 */
 
 
     /* 기존과 같은 어두운 배경 */
@@ -1565,14 +1606,14 @@ function drawResult(
     const imgCanvas =
         document.createElement("canvas");
 
-    imgCanvas.width  = plotW;
-    imgCanvas.height = plotH;
+    imgCanvas.width  = dataW;
+    imgCanvas.height = dataH;
 
     const imgCtx =
         imgCanvas.getContext("2d");
 
     const image =
-        imgCtx.createImageData(plotW, plotH);
+        imgCtx.createImageData(dataW, dataH);
 
     for(let z=0;z<=iteration;z++){
 
@@ -1624,7 +1665,7 @@ function drawResult(
             const py = N-1-x;
             const px = z;
 
-            const index = (py*plotW+px)*4;
+            const index = (py*dataW+px)*4;
 
             image.data[index]   = c[0];
             image.data[index+1] = c[1];
@@ -1636,11 +1677,17 @@ function drawResult(
     imgCtx.putImageData(image, 0, 0);
 
 
-    /* intensity 이미지는 여백만큼 안쪽에 그림 */
+    /* intensity 이미지는 원본 데이터 해상도(dataW×dataH)에서
+       화면 표시 크기(plotW×plotH)로 자연스럽게 보간되어 그려짐
+       (matplotlib 래스터처럼 픽셀 단위로 안 깨지고, 화면 크기에
+       맞춰 부드럽게 확대/축소됨) */
+
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
 
     ctx.drawImage(
         imgCanvas,
-        0, 0, plotW, plotH,
+        0, 0, dataW, dataH,
         marginLeft, marginTop, plotW, plotH
     );
 
@@ -1657,17 +1704,15 @@ function drawResult(
     const zStart = -zTotal/2;
 
     function zToPx(zVal){
-        return marginLeft + (zVal-zStart)/dz;
+        return marginLeft + (zVal-zStart)/zTotal*plotW;
     }
 
 
     /* t축(세로): t 배열(-62.5 ~ 62.5 μm)을 그대로 사용 */
 
-    const dt = t[1]-t[0];
-
     function tToPy(tVal){
-        const xIdx = (tVal-t[0])/dt;
-        return marginTop + (N-1-xIdx);
+        const frac = (tVal-t[0])/(t[N-1]-t[0]);
+        return marginTop + (1-frac)*plotH;
     }
 
 
@@ -1802,6 +1847,35 @@ function drawResult(
         plotH
     );
 }
+
+
+/* ============================================================
+   화면 크기가 바뀔 때(창 리사이즈, 모바일 화면 회전 등)
+   시뮬레이션을 다시 돌리지 않고 마지막 결과를 화면 크기에
+   맞게 다시 그려줌
+   ============================================================ */
+
+let resizeRedrawTimer = null;
+
+window.addEventListener("resize", function(){
+
+    clearTimeout(resizeRedrawTimer);
+
+    resizeRedrawTimer = setTimeout(function(){
+
+        if(lastDrawArgs){
+
+            drawResult(
+                lastDrawArgs.Ehistory,
+                lastDrawArgs.t,
+                lastDrawArgs.dz,
+                lastDrawArgs.iteration,
+                lastDrawArgs.P1,
+                lastDrawArgs.P2
+            );
+        }
+    }, 120);
+});
 
 
 /* ============================================================
