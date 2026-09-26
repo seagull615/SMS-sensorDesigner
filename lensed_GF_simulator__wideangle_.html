@@ -304,7 +304,7 @@
 
         <span class="param-item"><span class="param-label">λ</span><span class="param-value">1.55</span></span>
 
-        <span class="param-item"><span class="param-label">dz</span><span class="param-value">10</span></span>
+        <span class="param-item"><span class="param-label">dz</span><span class="param-value" id="dzReadout">10</span></span>
 
         <span class="param-item"><span class="param-label">Iteration</span><span class="param-value">200 (100+100)</span></span>
 
@@ -329,7 +329,7 @@
 
     <hr class="section-divider">
 
-    <div class="control-title">구간 전환점 P1 / P2 (z, μm) — SMF → No-core → GRIN MMF 순서의 전환점 (z=0부터는 Free-space, -1000 ~ 0 μm 구간 내)</div>
+    <div class="control-title" id="p1p2Title">구간 전환점 P1 / P2 (z, μm) — SMF → No-core → GRIN MMF 순서의 전환점 (z=0부터는 Free-space, 아래 범위 내에서 음수만 선택 가능)</div>
 
     <div class="dual-slider-wrapper">
         <div class="dual-slider-track"></div>
@@ -338,8 +338,8 @@
         <input type="range" id="p2Slider" class="dual-range-input" min="-1000" max="0" step="10" value="-400">
     </div>
     <div class="dn-range-labels" style="display:flex;justify-content:space-between;font-size:11px;color:#999;margin-top:4px;">
-        <span>-1000 μm</span>
-        <span>0 μm</span>
+        <span id="p1p2RangeMinLabel">-1000 μm</span>
+        <span id="p1p2RangeMaxLabel">0 μm</span>
     </div>
     <div class="parameters" style="margin-top:8px;">
         <span class="param-item"><span class="param-label">P1</span><span class="param-value" id="p1Readout">-900 μm</span></span>
@@ -367,16 +367,16 @@
 
     <div class="panel eta-panel">
 
-        <div class="control-title">Splicing Efficiency η<br>(마스크 반경 1.2×13.75 μm 내 출력 파워 비율)</div>
+        <div class="control-title">Peak Position (z &gt; 0)<br>(z=0 중심 기준 양의 방향 구간에서 세기가 가장 강한 z 위치)</div>
 
         <div class="eta-vertical-layout">
 
-            <div class="eta-gauge-readout" id="etaGaugeReadout">η = - / Loss = -</div>
+            <div class="eta-gauge-readout" id="etaGaugeReadout">Peak z = -</div>
 
             <div class="eta-gauge-scale-row">
                 <div class="eta-gauge-scale-labels">
-                    <span>1.0</span>
-                    <span>0.0</span>
+                    <span id="etaGaugeScaleMax">-</span>
+                    <span id="etaGaugeScaleMin">0 μm</span>
                 </div>
                 <div class="eta-gauge-wrapper">
                     <div class="eta-gauge-track">
@@ -404,7 +404,50 @@ const p1ReadoutEl = document.getElementById('p1Readout');
 const p2ReadoutEl = document.getElementById('p2Readout');
 const dualRangeEl = document.getElementById('dualRange');
 
-const DZ_UI = 10; /* runSimulation()의 dz와 반드시 일치시켜야 함 */
+/* runSimulation()의 dz, iteration과 반드시 같은 값을 써야 하므로
+   여기서 한 번만 정의하고 아래에서 공유해서 사용함 */
+
+const DZ_UI = 5;
+const ITERATION_UI = 200;
+
+/* 도파관(SMF+No-core+GRIN) 구간의 전체 길이 (μm) —
+   이 구간 안에서만 P1,P2가 음수로 존재할 수 있음 */
+
+const WAVEGUIDE_LENGTH_UI =
+    (ITERATION_UI/2)*DZ_UI;
+
+/* 슬라이더 범위를 위 값에 맞춰 다시 계산.
+   max를 0이 아니라 -DZ_UI로 둬서 P1,P2가 항상 순수하게
+   음수만 되도록 강제함 (z=0, 자유공간 시작점은 선택 불가) */
+
+p1SliderEl.min = -WAVEGUIDE_LENGTH_UI;
+p1SliderEl.max = -DZ_UI;
+p1SliderEl.step = DZ_UI;
+
+p2SliderEl.min = -WAVEGUIDE_LENGTH_UI;
+p2SliderEl.max = -DZ_UI;
+p2SliderEl.step = DZ_UI;
+
+/* 기본값도 새 범위에 맞춰 비율(10%, 60% 지점)로 재조정 */
+
+function snapToStep(v){
+    return Math.round(v/DZ_UI)*DZ_UI;
+}
+
+p1SliderEl.value =
+    snapToStep(-WAVEGUIDE_LENGTH_UI*0.9);
+
+p2SliderEl.value =
+    snapToStep(-WAVEGUIDE_LENGTH_UI*0.4);
+
+document.getElementById('p1p2RangeMinLabel').textContent =
+    (-WAVEGUIDE_LENGTH_UI) + ' μm';
+
+document.getElementById('p1p2RangeMaxLabel').textContent =
+    (-DZ_UI) + ' μm';
+
+document.getElementById('dzReadout').textContent =
+    DZ_UI;
 
 function updateDualSlider(){
 
@@ -787,21 +830,24 @@ function runSimulation(){
     const n_core = 1.459;
     const a2 = 25;
     const lambda = 1.55;
-    const dz = 10;
-    const iteration = 200;
+    const dz = DZ_UI;
+    const iteration = ITERATION_UI;
     const delta = 0.0117;
     const alpha = 2.17;
 
 
     /* ========================================================
        user-controlled parameters (P1, P2)
+
+       슬라이더 값은 항상 음수(-WAVEGUIDE_LENGTH_UI ~ -DZ_UI)이므로
+       도파관 시작점(0) 기준 μm로 바꾸려면 WAVEGUIDE_LENGTH_UI를 더함
        ======================================================== */
 
     const P1_um =
-        parseFloat(p1SliderEl.value) + 1000;
+        parseFloat(p1SliderEl.value) + WAVEGUIDE_LENGTH_UI;
 
     const P2_um =
-        parseFloat(p2SliderEl.value) + 1000;
+        parseFloat(p2SliderEl.value) + WAVEGUIDE_LENGTH_UI;
 
     const P1 =
         Math.round(P1_um/dz);
@@ -1174,56 +1220,51 @@ function runSimulation(){
 
 
     /* ========================================================
-       Splicing loss estimation
-
-       MATLAB:
-       M=double(r<1.2*13.75);
-       A_masked = M.*A;
-       Power_2 = sum(abs(A_masked(:)).^2)*dt*dt;
-       eta = Power_2 % because it is normalized at input
-       Loss = -10*log10(eta)
+       최종 결과(Ehistory)에서 z=0(중심) 기준 양의 방향(z>0,
+       free-space 구간)만 살펴서, 세기가 가장 강한 지점의
+       z 위치를 게이지로 표시 (세기 값 자체는 사용하지 않음)
        ======================================================== */
 
-    const maskRadius =
-        1.2*13.75;
+    const centerIndex =
+        Math.round(iteration/2);
 
-    let Power_2 = 0;
+    let peakIntensity = -1;
+    let peakK = centerIndex;
 
-    for(let y=0;y<N;y++){
+    for(let k=centerIndex;k<=iteration;k++){
 
         for(let x=0;x<N;x++){
 
-            const r =
-                Math.sqrt(
-                    t[x]*t[x] +
-                    t[y]*t[y]
-                );
+            const intensity =
+                Ehistory[k][x].abs2();
 
-            if(r < maskRadius){
-
-                Power_2 +=
-                    A[y][x].abs2();
+            if(intensity > peakIntensity){
+                peakIntensity = intensity;
+                peakK = k;
             }
         }
     }
 
-    Power_2 =
-        Power_2*dt*dt;
+    /* z_plot = (0:iteration)*dz - iteration*dz/2 와 동일한 정의 */
 
-    const eta = Power_2;
+    const zPeak =
+        peakK*dz - iteration*dz/2;
 
-    const Loss =
-        -10*Math.log10(eta);
+    const zEndPositive =
+        iteration*dz/2;
 
-    const etaPct =
-        Math.max(0, Math.min(1, eta))*100;
+    const posPct =
+        (zEndPositive > 0) ?
+        (zPeak/zEndPositive)*100 : 0;
 
     document.getElementById("etaGaugeMarker").style.bottom =
-        etaPct + "%";
+        Math.max(0, Math.min(100, posPct)) + "%";
+
+    document.getElementById("etaGaugeScaleMax").textContent =
+        zEndPositive.toFixed(0) + " μm";
 
     document.getElementById("etaGaugeReadout").textContent =
-        "η = " + eta.toFixed(4) +
-        "  /  Loss = " + Loss.toFixed(4) + " dB";
+        "Peak z = " + zPeak.toFixed(2) + " μm";
 
 
     /* ========================================================
@@ -1322,7 +1363,7 @@ function drawResult(
 
     const marginLeft   = 50;
     const marginRight  = 12;
-    const marginTop    = 10;
+    const marginTop    = 22; /* 상단에 SMF/No-core/GRIN/Free space 라벨 한 줄 공간 확보 */
     const marginBottom = 30;
 
     /* 실제로 화면에 그려질 플롯 크기는 "컨테이너 너비" 기준으로 정함
@@ -1594,6 +1635,40 @@ function drawResult(
     const zeroPx = zToPx(0);
     const p1Px   = zToPx((-iteration/2+P1)*dz);
     const p2Px   = zToPx((-iteration/2+P2)*dz);
+
+
+    /* ========================================================
+       구간 라벨: SMF / No-core / GRIN MMF / Free space
+       상단 여백(marginTop) 안에 각 구간 중앙에 텍스트로 표시
+       ======================================================== */
+
+    const regions = [
+        { from: marginLeft,        to: p1Px,               label: "SMF"       },
+        { from: p1Px,               to: p2Px,               label: "No-core"   },
+        { from: p2Px,               to: zeroPx,             label: "GRIN MMF"  },
+        { from: zeroPx,             to: marginLeft+plotW,   label: "Free space"}
+    ];
+
+    ctx.save();
+    ctx.font         = "10px Arial";
+    ctx.fillStyle    = "#dddddd";
+    ctx.textAlign    = "center";
+    ctx.textBaseline = "middle";
+
+    for(const region of regions){
+
+        const centerPx =
+            (region.from+region.to)/2;
+
+        ctx.fillText(
+            region.label,
+            centerPx,
+            marginTop/2 + 1
+        );
+    }
+
+    ctx.restore();
+
 
     /* z=0 (GRIN MMF 종료 / Free-space 시작): 흰색 실선 */
 
