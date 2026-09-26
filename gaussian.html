@@ -184,7 +184,7 @@
   <div class="formula">
     <b>Model</b><br>
     n = <span id="nDisplay">1.0003</span> &nbsp; | &nbsp;
-    Zᵣ = πw₀²/(nλ) &nbsp; | &nbsp;
+    Zᵣ = πnw₀²/λ &nbsp; | &nbsp;
     w(z) = w₀√(1+(z/Zᵣ)²)<br>
     E = (w₀/w) exp(-r²/w²) · exp(-ikz) · exp(-ikr²/(2R)) · exp(iψ)
   </div>
@@ -281,7 +281,7 @@ function calculate(){
   document.getElementById("nDisplay").textContent = n.toFixed(4);
 
   const k = 2*Math.PI*n/lambda;
-  const Zr = Math.PI*w0*w0/(n*lambda);
+  const Zr = Math.PI*n*w0*w0/lambda;
   const w = w0*Math.sqrt(1+(z/Zr)**2);
 
   // z=0에서는 R=infinity. 수치적으로 curvature term은 0으로 처리.
