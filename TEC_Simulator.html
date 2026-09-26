@@ -1,0 +1,1890 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TEC Simulator</title>
+
+<style>
+    body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        background: #f4f4f4;
+        color: #222;
+    }
+
+    .container {
+        max-width: 1100px;
+        margin: 30px auto;
+        padding: 20px;
+    }
+
+    h1 {
+        margin-bottom: 20px;
+    }
+
+    .method-note {
+        margin: -14px 0 20px;
+        font-size: 13px;
+        color: #777;
+    }
+
+    .panel {
+        background: white;
+        padding: 20px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    .parameters {
+        font-size: 14px;
+        line-height: 1.9;
+        color: #333;
+    }
+
+    .parameters .param-item {
+        display: inline;
+        margin-right: 18px;
+        white-space: nowrap;
+    }
+
+    .parameters .param-label {
+        color: #888;
+    }
+
+    .parameters .param-value {
+        font-weight: 600;
+        margin-left: 3px;
+    }
+
+    .section-divider {
+        margin: 20px 0 14px;
+        border: none;
+        border-top: 1px solid #eee;
+    }
+
+    .control-title {
+        font-size: 13px;
+        color: #666;
+        margin-bottom: 10px;
+    }
+
+    .dn-control {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        background: #f7f7f8;
+        border: 1px solid #e5e5e5;
+        border-radius: 8px;
+        padding: 14px 16px;
+    }
+
+    .dn-control input[type="range"] {
+        flex: 1;
+        accent-color: #222;
+    }
+
+    .dn-readout {
+        min-width: 90px;
+        font-size: 18px;
+        font-weight: 700;
+        text-align: center;
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        padding: 6px 10px;
+    }
+
+    .dn-range-labels {
+        display: flex;
+        justify-content: space-between;
+        font-size: 11px;
+        color: #999;
+        margin-top: 4px;
+    }
+
+    label {
+        font-size: 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+    }
+
+    input {
+        padding: 8px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        font-size: 14px;
+    }
+
+    button {
+        margin-top: 16px;
+        padding: 10px 24px;
+        border: none;
+        border-radius: 6px;
+        background: #222;
+        color: white;
+        font-size: 15px;
+        cursor: pointer;
+    }
+
+    button:hover {
+        background: #444;
+    }
+
+    .results {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 10px;
+        margin-top: 20px;
+    }
+
+    .result {
+        background: #eee;
+        padding: 12px;
+        border-radius: 6px;
+    }
+
+    .result-title {
+        font-size: 12px;
+        color: #666;
+    }
+
+    .result-value {
+        font-size: 18px;
+        margin-top: 4px;
+    }
+
+    .prop-eta-row {
+        display: flex;
+        gap: 20px;
+        align-items: stretch;
+    }
+
+    .prop-eta-row .panel.prop-panel {
+        flex: 1;
+        min-width: 0;
+        margin-bottom: 0;
+    }
+
+    .prop-eta-row .panel.eta-panel {
+        width: 220px;
+        flex-shrink: 0;
+        margin-bottom: 0;
+        display: flex;
+        flex-direction: column;
+    }
+
+    @media (max-width: 700px) {
+        .prop-eta-row {
+            flex-direction: column;
+        }
+
+        .prop-eta-row .panel.eta-panel {
+            width: 100%;
+        }
+    }
+
+    .eta-vertical-layout {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 14px;
+        flex: 1;
+    }
+
+    .eta-gauge-scale-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .eta-gauge-scale-labels {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        height: 170px;
+        font-size: 11px;
+        color: #999;
+    }
+
+    .eta-gauge-wrapper {
+        display: flex;
+        align-items: center;
+        height: 170px;
+        background: #f7f7f8;
+        border: 1px solid #e5e5e5;
+        border-radius: 8px;
+        padding: 14px 22px;
+    }
+
+    .eta-gauge-track {
+        position: relative;
+        width: 10px;
+        height: 100%;
+        border-radius: 5px;
+        background: #e2e2e2;
+        border: 1px solid #d5d5d5;
+    }
+
+    .eta-gauge-marker {
+        position: absolute;
+        left: -6px;
+        bottom: 0%;
+        width: 22px;
+        height: 4px;
+        background: #1e88e5;
+        border-radius: 2px;
+        transform: translateY(50%);
+        transition: bottom 0.4s ease;
+        z-index: 2;
+    }
+
+    .eta-gauge-marker-ref {
+        position: absolute;
+        left: -6px;
+        bottom: 69.2%;
+        width: 22px;
+        height: 2px;
+        background: #999;
+        transform: translateY(50%);
+        z-index: 1;
+    }
+
+    .eta-gauge-readout {
+        width: 100%;
+        font-size: 14px;
+        font-weight: 700;
+        text-align: center;
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        padding: 6px 8px;
+        box-sizing: border-box;
+    }
+
+    .eta-legend {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        font-size: 12px;
+        color: #777;
+    }
+
+    .eta-legend-dot {
+        display: inline-block;
+        width: 9px;
+        height: 9px;
+        border-radius: 2px;
+        margin-right: 5px;
+        vertical-align: middle;
+    }
+
+    canvas {
+        display: block;
+        width: 100%;
+        height: auto;
+        background: black;
+        image-rendering: auto;
+    }
+
+    .canvas-wrapper {
+        width: 100%;
+    }
+
+    #status {
+        margin-top: 10px;
+        color: #555;
+    }
+
+    .dual-slider-wrapper {
+        position: relative;
+        height: 30px;
+        margin: 10px 0 4px;
+    }
+
+    .dual-slider-track {
+        position: absolute;
+        top: 13px;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: #ddd;
+        border-radius: 2px;
+    }
+
+    .dual-slider-range {
+        position: absolute;
+        top: 13px;
+        height: 4px;
+        background: #222;
+        border-radius: 2px;
+    }
+
+    .dual-range-input {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 30px;
+        margin: 0;
+        background: none;
+        pointer-events: none;
+        -webkit-appearance: none;
+        appearance: none;
+    }
+
+    .dual-range-input::-webkit-slider-thumb {
+        pointer-events: auto;
+        -webkit-appearance: none;
+        appearance: none;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: #222;
+        cursor: pointer;
+        margin-top: 9px;
+        position: relative;
+    }
+
+    .dual-range-input::-webkit-slider-runnable-track {
+        height: 4px;
+        background: transparent;
+    }
+
+    .dual-range-input::-moz-range-thumb {
+        pointer-events: auto;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: #222;
+        cursor: pointer;
+        border: none;
+    }
+
+    .dual-range-input::-moz-range-track {
+        height: 4px;
+        background: transparent;
+    }
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>TEC Simulator</h1>
+<p class="method-note">Beam Propagation Method (BPM) — paraxial approximation 기반 계산입니다.</p>
+
+<div class="panel">
+
+    <div class="parameters">
+
+        <span class="param-item"><span class="param-label">Grid N</span><span class="param-value">128</span></span>
+
+        <span class="param-item"><span class="param-label">w</span><span class="param-value">4</span></span>
+
+        <span class="param-item"><span class="param-label">n0 (clad)</span><span class="param-value">1.4629</span></span>
+
+        <span class="param-item"><span class="param-label">λ</span><span class="param-value">1.55</span></span>
+
+        <span class="param-item"><span class="param-label">dz</span><span class="param-value">5</span></span>
+
+        <span class="param-item"><span class="param-label">Iteration</span><span class="param-value">200 (100+100)</span></span>
+
+    </div>
+
+    <hr class="section-divider">
+
+    <div class="control-title">도파관 구간 (a, n_core는 코드에 고정된 값 사용)</div>
+
+    <div class="parameters">
+        <span class="param-item"><span class="param-label">#1 a</span><span class="param-value">4</span></span>
+        <span class="param-item"><span class="param-label">#1 n_core</span><span class="param-value" id="nCore1">1.4682</span></span>
+        <span class="param-item"><span class="param-label">#1 NA</span><span class="param-value" id="NA1">-</span></span>
+        <span class="param-item"><span class="param-label">#1 V parameter</span><span class="param-value" id="V1">-</span></span>
+        <span class="param-item"><span class="param-label">n_clad</span><span class="param-value" id="nClad">1.4629</span></span>
+        <span class="param-item"><span class="param-label">#2 a</span><span class="param-value">5</span></span>
+        <span class="param-item"><span class="param-label">#2 n_core</span><span class="param-value" id="nCore2">1.4641</span></span>
+        <span class="param-item"><span class="param-label">#2 NA</span><span class="param-value" id="NA2">-</span></span>
+        <span class="param-item"><span class="param-label">#2 V parameter</span><span class="param-value" id="V2">-</span></span>
+    </div>
+
+    <hr class="section-divider">
+
+    <div class="control-title">TEC-ed 구간 확산 길이 σ (μm)</div>
+
+    <div class="dn-control">
+        <input type="range" id="sigmaSlider" min="0.1" max="5" step="0.1" value="1.5">
+        <div class="dn-readout" id="sigmaReadout">1.5 μm</div>
+    </div>
+    <div class="dn-range-labels">
+        <span>0.1 μm</span>
+        <span>5.0 μm</span>
+    </div>
+
+    <hr class="section-divider">
+
+    <div class="control-title">P1 / P2 위치 (z, μm) — 일반 SMF → TEC-ed 구간 → 일반 SMF 순서의 전환점 (-500 ~ 0 μm 구간 내)</div>
+
+    <div class="dual-slider-wrapper">
+        <div class="dual-slider-track"></div>
+        <div class="dual-slider-range" id="dualRange"></div>
+        <input type="range" id="p1Slider" class="dual-range-input" min="-500" max="0" step="5" value="-400">
+        <input type="range" id="p2Slider" class="dual-range-input" min="-500" max="0" step="5" value="-250">
+    </div>
+    <div class="dn-range-labels">
+        <span>-500 μm</span>
+        <span>0 μm</span>
+    </div>
+    <div class="parameters" style="margin-top:8px;">
+        <span class="param-item"><span class="param-label">P1</span><span class="param-value" id="p1Readout">-400 μm</span></span>
+        <span class="param-item"><span class="param-label">P2</span><span class="param-value" id="p2Readout">-250 μm</span></span>
+    </div>
+
+    <button onclick="runSimulation()">Run</button>
+
+    <div id="status" style="display:none;"></div>
+
+</div>
+
+
+<div class="prop-eta-row">
+
+    <div class="panel prop-panel">
+
+        <h2>Propagation</h2>
+
+        <div class="canvas-wrapper">
+            <canvas id="canvas"></canvas>
+        </div>
+
+    </div>
+
+    <div class="panel eta-panel">
+
+        <div class="control-title">Splicing Efficiency η<br>(마스크 반경 내 출력 파워 비율)</div>
+
+        <div class="eta-vertical-layout">
+
+            <div class="eta-gauge-readout" id="etaGaugeReadout">η = - / Loss = -</div>
+
+            <div class="eta-gauge-scale-row">
+                <div class="eta-gauge-scale-labels">
+                    <span>1.0</span>
+                    <span>0.0</span>
+                </div>
+                <div class="eta-gauge-wrapper">
+                    <div class="eta-gauge-track">
+                        <div class="eta-gauge-marker-ref"></div>
+                        <div class="eta-gauge-marker" id="etaGaugeMarker" style="bottom:0%;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="eta-legend">
+                <span><span class="eta-legend-dot" style="background:#999;"></span>기준 η = 0.692</span>
+                <span><span class="eta-legend-dot" style="background:#1e88e5;"></span>현재 η (TEC 적용)</span>
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<script>
+
+/* ============================================================
+   UI controls: sigma slider / P1,P2 dual slider
+   ============================================================ */
+
+const sigmaSliderEl = document.getElementById('sigmaSlider');
+const sigmaReadoutEl = document.getElementById('sigmaReadout');
+
+sigmaSliderEl.addEventListener('input', function(){
+    sigmaReadoutEl.textContent =
+        parseFloat(sigmaSliderEl.value).toFixed(1) + ' μm';
+});
+
+
+const p1SliderEl = document.getElementById('p1Slider');
+const p2SliderEl = document.getElementById('p2Slider');
+const p1ReadoutEl = document.getElementById('p1Readout');
+const p2ReadoutEl = document.getElementById('p2Readout');
+const dualRangeEl = document.getElementById('dualRange');
+
+const DZ_UI = 5; /* runSimulation()의 dz와 반드시 일치시켜야 함 */
+
+function updateDualSlider(){
+
+    let v1 = parseFloat(p1SliderEl.value);
+    let v2 = parseFloat(p2SliderEl.value);
+
+    if(v1 > v2){
+        v2 = v1;
+        p2SliderEl.value = v2;
+    }
+
+    const min = parseFloat(p1SliderEl.min);
+    const max = parseFloat(p1SliderEl.max);
+
+    const pct1 = (v1-min)/(max-min)*100;
+    const pct2 = (v2-min)/(max-min)*100;
+
+    dualRangeEl.style.left = pct1 + '%';
+    dualRangeEl.style.width = (pct2-pct1) + '%';
+
+    p1ReadoutEl.textContent =
+        v1 + ' μm';
+
+    p2ReadoutEl.textContent =
+        v2 + ' μm';
+}
+
+p1SliderEl.addEventListener('input', function(){
+
+    if(parseFloat(p1SliderEl.value) > parseFloat(p2SliderEl.value)){
+        p2SliderEl.value = p1SliderEl.value;
+    }
+
+    updateDualSlider();
+});
+
+p2SliderEl.addEventListener('input', function(){
+
+    if(parseFloat(p2SliderEl.value) < parseFloat(p1SliderEl.value)){
+        p1SliderEl.value = p2SliderEl.value;
+    }
+
+    updateDualSlider();
+});
+
+updateDualSlider();
+
+
+/* ============================================================
+   Complex number
+   ============================================================ */
+
+class Complex {
+
+    constructor(re = 0, im = 0) {
+        this.re = re;
+        this.im = im;
+    }
+
+    add(b) {
+        return new Complex(
+            this.re + b.re,
+            this.im + b.im
+        );
+    }
+
+    mul(b) {
+        return new Complex(
+            this.re*b.re - this.im*b.im,
+            this.re*b.im + this.im*b.re
+        );
+    }
+
+    scale(s) {
+        return new Complex(
+            this.re*s,
+            this.im*s
+        );
+    }
+
+    abs2() {
+        return this.re*this.re + this.im*this.im;
+    }
+}
+
+
+/* ============================================================
+   1D FFT
+   MATLAB FFT convention
+   ============================================================ */
+
+function fft1D(input, inverse = false) {
+
+    const N = input.length;
+
+    let output = new Array(N);
+
+    for(let i=0;i<N;i++){
+        output[i] = new Complex(
+            input[i].re,
+            input[i].im
+        );
+    }
+
+    /* bit reversal */
+
+    let j = 0;
+
+    for(let i=1;i<N;i++){
+
+        let bit = N >> 1;
+
+        while(j & bit){
+            j ^= bit;
+            bit >>= 1;
+        }
+
+        j ^= bit;
+
+        if(i < j){
+
+            const temp = output[i];
+
+            output[i] = output[j];
+            output[j] = temp;
+        }
+    }
+
+
+    /* Cooley-Tukey */
+
+    for(let len=2;len<=N;len<<=1){
+
+        const angle =
+            (inverse ? 2 : -2) *
+            Math.PI / len;
+
+        const wlen = new Complex(
+            Math.cos(angle),
+            Math.sin(angle)
+        );
+
+        for(let i=0;i<N;i+=len){
+
+            let w = new Complex(1,0);
+
+            for(let j=0;j<len/2;j++){
+
+                const u = output[i+j];
+
+                const v = output[i+j+len/2].mul(w);
+
+                output[i+j] =
+                    u.add(v);
+
+                output[i+j+len/2] =
+                    u.add(v.scale(-1));
+
+                w = w.mul(wlen);
+            }
+        }
+    }
+
+
+    /* MATLAB ifft normalization */
+
+    if(inverse){
+
+        for(let i=0;i<N;i++){
+
+            output[i].re /= N;
+            output[i].im /= N;
+        }
+    }
+
+    return output;
+}
+
+
+/* ============================================================
+   2D FFT
+   ============================================================ */
+
+function fft2D(A, inverse=false){
+
+    const N = A.length;
+
+    let B = new Array(N);
+
+    for(let y=0;y<N;y++){
+
+        B[y] = fft1D(A[y], inverse);
+    }
+
+
+    /* columns */
+
+    for(let x=0;x<N;x++){
+
+        let column = new Array(N);
+
+        for(let y=0;y<N;y++){
+            column[y] = B[y][x];
+        }
+
+        column = fft1D(column, inverse);
+
+        for(let y=0;y<N;y++){
+            B[y][x] = column[y];
+        }
+    }
+
+    return B;
+}
+
+
+/* ============================================================
+   MATLAB fftshift
+   ============================================================ */
+
+function fftshift2D(A){
+
+    const N = A.length;
+
+    const B = new Array(N);
+
+    const half = N/2;
+
+    for(let y=0;y<N;y++){
+
+        B[y] = new Array(N);
+
+        for(let x=0;x<N;x++){
+
+            const yy = (y + half) % N;
+            const xx = (x + half) % N;
+
+            B[y][x] = A[yy][xx];
+        }
+    }
+
+    return B;
+}
+
+
+/* ============================================================
+   Matrix utilities
+   ============================================================ */
+
+function createComplexMatrix(N){
+
+    const A = new Array(N);
+
+    for(let y=0;y<N;y++){
+
+        A[y] = new Array(N);
+
+        for(let x=0;x<N;x++){
+            A[y][x] = new Complex(0,0);
+        }
+    }
+
+    return A;
+}
+
+
+/* ============================================================
+   Gaussian kernel (MATLAB fspecial('gaussian',[size size],sigma) 대응)
+   ============================================================ */
+
+function gaussianKernel2D(size, sigmaPixel){
+
+    const half = Math.floor(size/2);
+
+    const kernel = new Array(size);
+
+    let sum = 0;
+
+    for(let y=-half;y<=half;y++){
+
+        const row = new Array(size);
+
+        for(let x=-half;x<=half;x++){
+
+            const val =
+                Math.exp(
+                    -(x*x+y*y) /
+                    (2*sigmaPixel*sigmaPixel)
+                );
+
+            row[x+half] = val;
+
+            sum += val;
+        }
+
+        kernel[y+half] = row;
+    }
+
+    /* normalize: sum(G(:)) == 1 */
+
+    for(let y=0;y<size;y++){
+
+        for(let x=0;x<size;x++){
+
+            kernel[y][x] /= sum;
+        }
+    }
+
+    return kernel;
+}
+
+
+/* ============================================================
+   2D convolution, 'same' size, zero-padding
+   (MATLAB conv2(dn,G,'same') 대응)
+   ============================================================ */
+
+function conv2Same(dn, kernel){
+
+    const N = dn.length;
+
+    const ksize = kernel.length;
+
+    const khalf = Math.floor(ksize/2);
+
+    const result = new Array(N);
+
+    for(let y=0;y<N;y++){
+
+        result[y] = new Array(N).fill(0);
+    }
+
+    for(let y=0;y<N;y++){
+
+        for(let x=0;x<N;x++){
+
+            let acc = 0;
+
+            for(let ky=0;ky<ksize;ky++){
+
+                const sy = y + ky - khalf;
+
+                if(sy < 0 || sy >= N) continue;
+
+                for(let kx=0;kx<ksize;kx++){
+
+                    const sx = x + kx - khalf;
+
+                    if(sx < 0 || sx >= N) continue;
+
+                    acc += dn[sy][sx] * kernel[ky][kx];
+                }
+            }
+
+            result[y][x] = acc;
+        }
+    }
+
+    return result;
+}
+
+
+/* ============================================================
+   Main simulation
+   ============================================================ */
+
+function runSimulation(){
+
+    /* ========================================================
+       고정 파라미터 (사용자 조작 없음, MATLAB 코드와 동일)
+       ======================================================== */
+
+    const N = 128;
+    const w = 4;
+    const a = 4;
+    const n0 = 1.4629;
+    const n_core = 1.4682;
+    const a2 = 5;
+    const n_core_2 = 1.4641;
+    const lambda = 1.55;
+    const dz = 5;
+    const iteration = 200;
+
+
+    /* ========================================================
+       user-controlled parameters (sigma, P1, P2)
+       ======================================================== */
+
+    const sigma =
+        parseFloat(sigmaSliderEl.value);
+
+    const P1_um =
+        parseFloat(p1SliderEl.value) + 500;
+
+    const P2_um =
+        parseFloat(p2SliderEl.value) + 500;
+
+    const P1 =
+        Math.round(P1_um/dz);
+
+    const P2 =
+        Math.round(P2_um/dz);
+
+
+    /* ========================================================
+       spatial grid
+
+       MATLAB:
+       t=linspace(-62.5,62.5,N)
+       ======================================================== */
+
+    const t = new Array(N);
+
+    for(let i=0;i<N;i++){
+
+        t[i] =
+            -62.5 +
+            i*(125/(N-1));
+    }
+
+    const dt = t[1]-t[0];
+
+    const fs = 1/dt;
+
+    const df = fs/N;
+
+    /* MATLAB: sigma_pixel = sigma/dt; */
+
+    const sigmaPixel = sigma/dt;
+
+
+    /* ========================================================
+       wave vector
+       ======================================================== */
+
+    const k0 =
+        2*Math.PI/lambda*n0;
+
+
+    /* ========================================================
+       frequency domain
+
+       MATLAB:
+       f=(-N/2:N/2-1)*df
+       ======================================================== */
+
+    const f = new Array(N);
+
+    for(let i=0;i<N;i++){
+
+        f[i] =
+            (-N/2+i)*df;
+    }
+
+    const wv = new Array(N);
+
+    for(let i=0;i<N;i++){
+
+        wv[i] =
+            2*Math.PI*f[i];
+    }
+
+
+    /* ========================================================
+       H_prop
+
+       MATLAB:
+       H_prop =
+       exp(-1j*r_wv.^2*dz/(2*k0))
+       ======================================================== */
+
+    const Hprop =
+        createComplexMatrix(N);
+
+
+    for(let y=0;y<N;y++){
+
+        for(let x=0;x<N;x++){
+
+            const rwv2 =
+                wv[x]*wv[x] +
+                wv[y]*wv[y];
+
+            const phase =
+                -rwv2*dz/(2*k0);
+
+            Hprop[y][x] =
+                new Complex(
+                    Math.cos(phase),
+                    Math.sin(phase)
+                );
+        }
+    }
+
+
+    /* ========================================================
+       waveguide #1 / #2 refractive index
+
+       MATLAB:
+       dn   = double(r<a) *(n_core  -n0)
+       dn_2 = double(r<a2)*(n_core_2-n0)
+       ======================================================== */
+
+    const Hdn1 =
+        createComplexMatrix(N);
+
+    const Hdn2 =
+        createComplexMatrix(N);
+
+
+    const E0 =
+        createComplexMatrix(N);
+
+
+    /* real-valued dn (waveguide #1 profile), before TEC smoothing
+       MATLAB: dn = double(r<a)*(n_core-n0) */
+
+    const dnReal = new Array(N);
+
+    for(let y=0;y<N;y++){
+        dnReal[y] = new Array(N);
+    }
+
+
+    for(let y=0;y<N;y++){
+
+        for(let x=0;x<N;x++){
+
+            const r =
+                Math.sqrt(
+                    t[x]*t[x] +
+                    t[y]*t[y]
+                );
+
+
+            /* Gaussian */
+
+            const E =
+                Math.exp(
+                    -r*r/(w*w)
+                );
+
+            E0[y][x] =
+                new Complex(E,0);
+
+
+            /* refractive index #1 */
+
+            const dn1 =
+                (r < a) ?
+                (n_core - n0) :
+                0;
+
+            dnReal[y][x] = dn1;
+
+            const phase1 =
+                k0*dn1*dz;
+
+            Hdn1[y][x] =
+                new Complex(
+                    Math.cos(phase1),
+                    Math.sin(phase1)
+                );
+
+
+            /* refractive index #2 */
+
+            const dn2 =
+                (r < a2) ?
+                (n_core_2 - n0) :
+                0;
+
+            const phase2 =
+                k0*dn2*dz;
+
+            Hdn2[y][x] =
+                new Complex(
+                    Math.cos(phase2),
+                    Math.sin(phase2)
+                );
+        }
+    }
+
+
+    /* ========================================================
+       #3 TEC-ed SMF refractive shape
+
+       MATLAB:
+       sigma_pixel = sigma/dt
+       G = fspecial('gaussian',[31 31],sigma_pixel)
+       G = G/sum(G(:))
+       dn = conv2(dn,G,'same')
+       H_dn_tec1 = exp(1j*k0*dn*dz)
+       ======================================================== */
+
+    const gaussG =
+        gaussianKernel2D(31, sigmaPixel);
+
+    const dnTec =
+        conv2Same(dnReal, gaussG);
+
+    const HdnTec1 =
+        createComplexMatrix(N);
+
+    for(let y=0;y<N;y++){
+
+        for(let x=0;x<N;x++){
+
+            const phaseTec =
+                k0*dnTec[y][x]*dz;
+
+            HdnTec1[y][x] =
+                new Complex(
+                    Math.cos(phaseTec),
+                    Math.sin(phaseTec)
+                );
+        }
+    }
+
+
+    /* ========================================================
+       fiber parameters (waveguide #1, #2)
+       ======================================================== */
+
+    const NA1 =
+        Math.sqrt(
+            n_core*n_core -
+            n0*n0
+        );
+
+    const V1 =
+        (2*Math.PI*a/lambda)*NA1;
+
+    const NA2 =
+        Math.sqrt(
+            n_core_2*n_core_2 -
+            n0*n0
+        );
+
+    const V2 =
+        (2*Math.PI*a2/lambda)*NA2;
+
+
+    document.getElementById("nCore1").textContent =
+        n_core.toFixed(6);
+
+    document.getElementById("nClad").textContent =
+        n0.toFixed(6);
+
+    document.getElementById("NA1").textContent =
+        NA1.toFixed(6);
+
+    document.getElementById("V1").textContent =
+        V1.toFixed(6);
+
+    document.getElementById("nCore2").textContent =
+        n_core_2.toFixed(6);
+
+    document.getElementById("NA2").textContent =
+        NA2.toFixed(6);
+
+    document.getElementById("V2").textContent =
+        V2.toFixed(6);
+
+
+    /* ========================================================
+       E_history
+
+       MATLAB:
+       E_history=zeros(N,iteration+1)
+
+       여기서는 complex를 그대로 저장
+       ======================================================== */
+
+    const Ehistory =
+        new Array(iteration+1);
+
+
+    /* initial field */
+
+    let A = E0;
+
+
+    /* ========================================================
+       입력 파워 정규화
+
+       splicing loss 계산에서 쓰는
+       "eta = Power_2 (because it is normalized at input)"
+       라는 가정이 성립하려면, 전파를 시작하기 전에
+       입력 필드의 총 파워가 1이 되도록 정규화해야 함.
+
+       MATLAB:
+       A = A / sqrt( sum(abs(A(:)).^2)*dt*dt );
+       ======================================================== */
+
+    let Power_in = 0;
+
+    for(let y=0;y<N;y++){
+
+        for(let x=0;x<N;x++){
+
+            Power_in +=
+                A[y][x].abs2();
+        }
+    }
+
+    Power_in =
+        Power_in*dt*dt;
+
+    const normFactor =
+        Math.sqrt(Power_in);
+
+    for(let y=0;y<N;y++){
+
+        for(let x=0;x<N;x++){
+
+            A[y][x] =
+                A[y][x].scale(1/normFactor);
+        }
+    }
+
+
+    /*
+       MATLAB:
+       E_history(:,1)=A(N/2,:);
+
+       MATLAB의 N/2 번째 row.
+       JS에서는 index = N/2 - 1
+    */
+
+    const centerRow =
+        N/2 - 1;
+
+
+    Ehistory[0] =
+        new Array(N);
+
+    for(let x=0;x<N;x++){
+
+        Ehistory[0][x] =
+            A[centerRow][x];
+    }
+
+
+    /* ========================================================
+       propagation loop
+       ======================================================== */
+
+    for(let k=0;k<iteration;k++){
+
+        document.getElementById("status").textContent =
+            `Calculating... ${k+1} / ${iteration}`;
+
+
+        /*
+           MATLAB:
+
+           k = 1 : P1                 -> H_dn      (waveguide #1, 일반 SMF)
+           k = P1+1 : P2              -> H_dn_tec1 (TEC-ed SMF)
+           k = P2+1 : iteration/2     -> H_dn      (waveguide #1, 일반 SMF)
+           k = iteration/2+1 : end    -> H_dn_2    (waveguide #2)
+
+           A = fftshift(
+                   fft2(
+                       A .* H_dn
+                   )
+               );
+        */
+
+        let Hdn;
+
+        if(k < P1){
+            Hdn = Hdn1;
+        } else if(k < P2){
+            Hdn = HdnTec1;
+        } else if(k < iteration/2){
+            Hdn = Hdn1;
+        } else {
+            Hdn = Hdn2;
+        }
+
+        for(let y=0;y<N;y++){
+
+            for(let x=0;x<N;x++){
+
+                A[y][x] =
+                    A[y][x].mul(
+                        Hdn[y][x]
+                    );
+            }
+        }
+
+
+        A =
+            fft2D(A,false);
+
+        A =
+            fftshift2D(A);
+
+
+        /*
+           MATLAB:
+
+           A=A.*H_prop;
+        */
+
+        for(let y=0;y<N;y++){
+
+            for(let x=0;x<N;x++){
+
+                A[y][x] =
+                    A[y][x].mul(
+                        Hprop[y][x]
+                    );
+            }
+        }
+
+
+        /*
+           MATLAB:
+
+           A=ifft2(fftshift(A));
+        */
+
+        A =
+            fftshift2D(A);
+
+        A =
+            fft2D(A,true);
+
+
+        /*
+           E_history(:,k+1)
+        */
+
+        Ehistory[k+1] =
+            new Array(N);
+
+        for(let x=0;x<N;x++){
+
+            Ehistory[k+1][x] =
+                A[centerRow][x];
+        }
+    }
+
+
+    document.getElementById("status").textContent =
+        "Calculation complete";
+
+
+    /* ========================================================
+       Splicing loss estimation
+
+       MATLAB:
+       M=double(r<1.2*13.75);
+       A_masked = M.*A;
+       Power_2 = sum(abs(A_masked(:)).^2)*dt*dt;
+       eta = Power_2 % because it is normalized at input
+       Loss = -10*log10(eta)
+
+       여기서 A는 전파가 끝난 시점(마지막 iteration)의
+       최종 필드. r < maskRadius 안쪽만 남기고(mask)
+       그 안의 파워를 적분해서 splicing loss를 추정.
+       ======================================================== */
+
+    const maskRadius =
+        1.2*13.75;
+
+    let Power_2 = 0;
+
+    for(let y=0;y<N;y++){
+
+        for(let x=0;x<N;x++){
+
+            const r =
+                Math.sqrt(
+                    t[x]*t[x] +
+                    t[y]*t[y]
+                );
+
+            if(r < maskRadius){
+
+                Power_2 +=
+                    A[y][x].abs2();
+            }
+        }
+    }
+
+    Power_2 =
+        Power_2*dt*dt;
+
+    /* input에서 이미 normalize 되어 있다고 가정 */
+
+    const eta = Power_2;
+
+    const Loss =
+        -10*Math.log10(eta);
+
+    /* 게이지 마커 위치 (0~1을 0~100%로) */
+
+    const etaPct =
+        Math.max(0, Math.min(1, eta))*100;
+
+    document.getElementById("etaGaugeMarker").style.bottom =
+        etaPct + "%";
+
+    document.getElementById("etaGaugeReadout").textContent =
+        "η = " + eta.toFixed(4) +
+        "  /  Loss = " + Loss.toFixed(4) + " dB";
+
+
+    /* ========================================================
+       Draw MATLAB equivalent:
+
+       surf(z_plot,t,-abs(E_history).^2)
+       view(2)
+       colormap turbo
+       ======================================================== */
+
+    drawResult(
+        Ehistory,
+        t,
+        dz,
+        iteration,
+        P1,
+        P2
+    );
+}
+
+
+/* ============================================================
+   Draw result
+   ============================================================ */
+
+function turboColor(x){
+
+    const stops = [
+        [0.00, [48, 18, 59]],
+        [0.10, [54, 79, 157]],
+        [0.20, [40, 123, 177]],
+        [0.30, [31, 161, 135]],
+        [0.40, [86, 190, 108]],
+        [0.50, [167, 220, 77]],
+        [0.60, [226, 239, 72]],
+        [0.70, [250, 191, 64]],
+        [0.80, [247, 126, 55]],
+        [0.90, [220, 61, 45]],
+        [1.00, [122, 4, 3]]
+    ];
+
+    x = Math.max(0, Math.min(1, x));
+
+    for(let i=0; i<stops.length-1; i++){
+        const x1 = stops[i][0];
+        const x2 = stops[i+1][0];
+
+        if(x <= x2){
+            const q = (x-x1)/(x2-x1);
+
+            return [
+                Math.round(stops[i][1][0] + q*(stops[i+1][1][0]-stops[i][1][0])),
+                Math.round(stops[i][1][1] + q*(stops[i+1][1][1]-stops[i][1][1])),
+                Math.round(stops[i][1][2] + q*(stops[i+1][1][2]-stops[i][1][2]))
+            ];
+        }
+    }
+
+    return stops[stops.length-1][1];
+}
+
+
+let lastDrawArgs = null;
+
+function drawResult(
+    Ehistory,
+    t,
+    dz,
+    iteration,
+    P1,
+    P2
+){
+
+    /* 창 크기가 바뀔 때(예: 모바일 회전) 재시뮬레이션 없이
+       다시 그릴 수 있도록 마지막 인자를 저장해 둠 */
+
+    lastDrawArgs = {
+        Ehistory: Ehistory,
+        t: t,
+        dz: dz,
+        iteration: iteration,
+        P1: P1,
+        P2: P2
+    };
+
+    const N = t.length;
+
+    /* intensity 데이터의 원본 해상도 (시뮬레이션 격자 크기,
+       화면 표시 크기와는 별개) */
+
+    const dataW = iteration+1;
+    const dataH = N;
+
+    /* 축 눈금/라벨을 위한 여백 (화면상 CSS 픽셀 고정값 —
+       데이터 크기와 무관하게 항상 같은 크기로 그려짐) */
+
+    const marginLeft   = 50;
+    const marginRight  = 12;
+    const marginTop    = 10;
+    const marginBottom = 30;
+
+    /* 실제로 화면에 그려질 플롯 크기는 "컨테이너 너비" 기준으로 정함
+       (데이터 샘플 수와 무관하게) — 이렇게 분리해야 모바일처럼
+       화면이 좁아도 여백/글자가 찌그러지거나 잘리지 않음 */
+
+    const canvas =
+        document.getElementById("canvas");
+
+    const wrapper =
+        canvas.parentElement;
+
+    const wrapperWidth =
+        wrapper.clientWidth || 320;
+
+    const logicalW = Math.max(220, Math.round(wrapperWidth));
+    const plotW    = logicalW - marginLeft - marginRight;
+    const plotH    = 150; /* 플롯 높이(CSS 픽셀), 데이터 크기와 무관하게 고정 */
+    const logicalH = plotH + marginTop + marginBottom;
+
+    /* 화면 흐림 방지를 위해 실제 캔버스 해상도는
+       기기 픽셀비(devicePixelRatio)만큼 올려서 렌더링 */
+
+    const DPR = Math.min(window.devicePixelRatio || 1, 3);
+
+    canvas.style.width  = logicalW + "px";
+    canvas.style.height = logicalH + "px";
+
+    canvas.width  = Math.round(logicalW*DPR);
+    canvas.height = Math.round(logicalH*DPR);
+
+    const ctx =
+        canvas.getContext("2d");
+
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+
+    /* 이후 모든 좌표는 논리(CSS) 픽셀 기준으로 그리면 됨 */
+
+
+    /* 기존과 같은 어두운 배경 */
+
+    ctx.fillStyle = "#000000";
+    ctx.fillRect(
+        0, 0,
+        logicalW,
+        logicalH
+    );
+
+
+    /* find maximum intensity */
+
+    let maxIntensity = 0;
+
+    for(let z=0;z<=iteration;z++){
+
+        for(let x=0;x<N;x++){
+
+            const intensity =
+                Ehistory[z][x].abs2();
+
+            if(intensity > maxIntensity){
+                maxIntensity =
+                    intensity;
+            }
+        }
+    }
+
+
+    /*
+       MATLAB:
+
+       -abs(E_history).^2
+
+       MATLAB colormap turbo에서는
+       음수 값이므로 큰 intensity일수록
+       어두워지는 방향으로 표현됨.
+    */
+
+    const imgCanvas =
+        document.createElement("canvas");
+
+    imgCanvas.width  = dataW;
+    imgCanvas.height = dataH;
+
+    const imgCtx =
+        imgCanvas.getContext("2d");
+
+    const image =
+        imgCtx.createImageData(dataW, dataH);
+
+    for(let z=0;z<=iteration;z++){
+
+        for(let x=0;x<N;x++){
+
+            const E =
+                Ehistory[z][x];
+
+            const intensity =
+                E.abs2();
+
+            let value =
+                intensity/maxIntensity;
+
+            value =
+                Math.max(
+                    0,
+                    Math.min(1,value)
+                );
+
+            /*
+               매쉬 z값(-abs(E)^2)에 음수를 곱한 효과:
+               turbo 컬러맵 방향을 뒤집어서
+               강한 세기가 반대쪽 색(진한 파랑)으로 표현되게 함
+            */
+
+            value =
+                1 - value;
+
+            /*
+               grayscale
+
+               MATLAB의 -abs(E).^2 + turbo
+               에 대응하여 강한 빛 = 밝은 노랑 계열
+            */
+
+            const c = turboColor(value);
+
+
+            /*
+               MATLAB 배열:
+
+               row = t
+
+               화면에서는 위에서 아래로 증가하므로
+               y를 뒤집음
+            */
+
+            const py = N-1-x;
+            const px = z;
+
+            const index = (py*dataW+px)*4;
+
+            image.data[index]   = c[0];
+            image.data[index+1] = c[1];
+            image.data[index+2] = c[2];
+            image.data[index+3] = 255;
+        }
+    }
+
+    imgCtx.putImageData(image, 0, 0);
+
+
+    /* intensity 이미지는 원본 데이터 해상도(dataW×dataH)에서
+       화면 표시 크기(plotW×plotH)로 자연스럽게 보간되어 그려짐
+       (matplotlib 래스터처럼 픽셀 단위로 안 깨지고, 화면 크기에
+       맞춰 부드럽게 확대/축소됨) */
+
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+
+    ctx.drawImage(
+        imgCanvas,
+        0, 0, dataW, dataH,
+        marginLeft, marginTop, plotW, plotH
+    );
+
+
+    /* ========================================================
+       z축(가로): 전체 propagation 구간(iteration*dz)의
+       한가운데를 z=0으로 잡음
+
+       MATLAB:
+       z_plot = (0:iteration)*dz - iteration*dz/2;
+       ======================================================== */
+
+    const zTotal = iteration*dz;
+    const zStart = -zTotal/2;
+
+    function zToPx(zVal){
+        return marginLeft + (zVal-zStart)/zTotal*plotW;
+    }
+
+
+    /* t축(세로): t 배열(-62.5 ~ 62.5 μm)을 그대로 사용 */
+
+    function tToPy(tVal){
+        const frac = (tVal-t[0])/(t[N-1]-t[0]);
+        return marginTop + (1-frac)*plotH;
+    }
+
+
+    ctx.strokeStyle = "#aaaaaa";
+    ctx.fillStyle   = "#dddddd";
+    ctx.font        = "11px Arial";
+    ctx.lineWidth   = 1;
+
+
+    /* x축 눈금: 200 μm 간격 */
+
+    const zStep = 200;
+
+    const zFirstTick =
+        Math.ceil(zStart/zStep)*zStep;
+
+    ctx.textAlign    = "center";
+    ctx.textBaseline = "top";
+
+    for(let zTick=zFirstTick; zTick<=zStart+zTotal+1e-6; zTick+=zStep){
+
+        const px = zToPx(zTick);
+
+        ctx.beginPath();
+        ctx.moveTo(px, marginTop+plotH);
+        ctx.lineTo(px, marginTop+plotH+4);
+        ctx.stroke();
+
+        ctx.fillText(
+            zTick.toFixed(0),
+            px,
+            marginTop+plotH+6
+        );
+    }
+
+    ctx.fillText(
+        "z (μm)",
+        marginLeft+plotW/2,
+        marginTop+plotH+17
+    );
+
+
+    /* y축 눈금: 20 μm 간격 */
+
+    const tStep = 20;
+
+    const tFirstTick =
+        Math.ceil(t[0]/tStep)*tStep;
+
+    ctx.textAlign    = "right";
+    ctx.textBaseline = "middle";
+
+    for(let tTick=tFirstTick; tTick<=t[N-1]+1e-6; tTick+=tStep){
+
+        const py = tToPy(tTick);
+
+        ctx.beginPath();
+        ctx.moveTo(marginLeft-4, py);
+        ctx.lineTo(marginLeft, py);
+        ctx.stroke();
+
+        ctx.fillText(
+            tTick.toFixed(0),
+            marginLeft-6,
+            py
+        );
+    }
+
+    /* y축 라벨 (세로로 회전) */
+
+    ctx.save();
+    ctx.translate(11, marginTop+plotH/2);
+    ctx.rotate(-Math.PI/2);
+    ctx.textAlign    = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("x (μm)", 0, 0);
+    ctx.restore();
+
+
+    /* ========================================================
+       MATLAB:
+
+       xline(0,'-','color','white','LineWidth',1.5)
+       xline((-iteration/2+P1)*dz,'--','color','white','LineWidth',1)
+       xline((-iteration/2+P2)*dz,'--','color','white','LineWidth',1)
+       ======================================================== */
+
+    const zeroPx = zToPx(0);
+    const p1Px   = zToPx((-iteration/2+P1)*dz);
+    const p2Px   = zToPx((-iteration/2+P2)*dz);
+
+    /* z=0: 흰색 실선 */
+
+    ctx.save();
+    ctx.strokeStyle = "#ffffff";
+    ctx.setLineDash([]);
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(zeroPx, marginTop);
+    ctx.lineTo(zeroPx, marginTop+plotH);
+    ctx.stroke();
+    ctx.restore();
+
+    /* P1, P2 전환점: 흰색 점선 */
+
+    ctx.save();
+    ctx.strokeStyle = "#ffffff";
+    ctx.setLineDash([5,4]);
+    ctx.lineWidth = 1;
+
+    ctx.beginPath();
+    ctx.moveTo(p1Px, marginTop);
+    ctx.lineTo(p1Px, marginTop+plotH);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(p2Px, marginTop);
+    ctx.lineTo(p2Px, marginTop+plotH);
+    ctx.stroke();
+
+    ctx.restore();
+
+
+    /* plot 테두리 */
+
+    ctx.strokeStyle = "#666666";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(
+        marginLeft,
+        marginTop,
+        plotW,
+        plotH
+    );
+}
+
+
+/* ============================================================
+   화면 크기가 바뀔 때(창 리사이즈, 모바일 화면 회전 등)
+   시뮬레이션을 다시 돌리지 않고 마지막 결과를 화면 크기에
+   맞게 다시 그려줌
+   ============================================================ */
+
+let resizeRedrawTimer = null;
+
+window.addEventListener("resize", function(){
+
+    clearTimeout(resizeRedrawTimer);
+
+    resizeRedrawTimer = setTimeout(function(){
+
+        if(lastDrawArgs){
+
+            drawResult(
+                lastDrawArgs.Ehistory,
+                lastDrawArgs.t,
+                lastDrawArgs.dz,
+                lastDrawArgs.iteration,
+                lastDrawArgs.P1,
+                lastDrawArgs.P2
+            );
+        }
+    }, 120);
+});
+
+
+/* ============================================================
+   Run automatically
+   ============================================================ */
+
+runSimulation();
+
+</script>
+
+</body>
+</html>
