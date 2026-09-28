@@ -17,12 +17,7 @@
   }
   *{box-sizing:border-box;}
   html,body{height:100%;}
-  body{
-    margin:0;
-    background:var(--bg);
-    color:var(--text);
-    font-family:var(--sans);
-  }
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);}
   .page{max-width:1100px;margin:0 auto;padding:32px 20px 48px;}
   header h1{font-size:1.55rem;font-weight:600;margin:0 0 6px;letter-spacing:-0.01em;}
   header p.sub{color:var(--muted);margin:0 0 22px;max-width:62ch;line-height:1.5;font-size:0.95rem;}
@@ -30,95 +25,43 @@
   @media (max-width:860px){.layout{grid-template-columns:1fr;}}
 
   .filelist{
-    background:var(--panel);
-    border:1px solid var(--panel-border);
-    border-radius:10px;
-    padding:10px;
-    display:flex;
-    flex-direction:column;
-    gap:4px;
+    background:var(--panel);border:1px solid var(--panel-border);border-radius:10px;
+    padding:10px;display:flex;flex-direction:column;gap:4px;
   }
   .file-item{
-    display:flex;
-    flex-direction:column;
-    gap:2px;
-    padding:10px 12px;
-    border-radius:7px;
-    cursor:pointer;
-    border:1px solid transparent;
+    display:flex;flex-direction:column;gap:2px;padding:10px 12px;border-radius:7px;
+    cursor:pointer;border:1px solid transparent;
   }
   .file-item:hover{background:rgba(59,130,246,0.05);}
-  .file-item.active{background:rgba(59,130,246,0.08); border-color:rgba(59,130,246,0.35);}
+  .file-item.active{background:rgba(59,130,246,0.08);border-color:rgba(59,130,246,0.35);}
   .file-item .name{font-size:0.88rem;font-weight:600;color:var(--text);}
-  .file-item .meta{font-size:0.74rem;color:var(--muted);}
-
-  .addbtn{
-    margin-top:4px;
-    background:transparent;
-    border:1px dashed var(--panel-border);
-    color:var(--muted);
-    border-radius:7px;
-    padding:9px 12px;
-    font-family:var(--sans);
-    font-size:0.8rem;
-    cursor:pointer;
-  }
-  .addbtn:hover{border-color:var(--accent);color:var(--text);}
-  input[type=file]{display:none;}
+  .file-item .meta{font-size:0.74rem;color:var(--muted);font-family:var(--mono);}
 
   .stage{
-    background:var(--panel);
-    border:1px solid var(--panel-border);
-    border-radius:10px;
-    padding:10px;
-    position:relative;
+    background:var(--panel);border:1px solid var(--panel-border);border-radius:10px;
+    padding:10px;min-height:320px;display:flex;align-items:center;justify-content:center;
   }
-  #viewport{
-    width:100%;
-    height:520px;
-    border-radius:6px;
-    display:block;
-    background:radial-gradient(circle at 50% 30%, #eef2f8, #e2e8f3 75%);
+  #photo{
+    max-width:100%;max-height:520px;border-radius:6px;display:none;object-fit:contain;
   }
+  #photoMsg{
+    display:none;color:var(--muted);font-size:0.9rem;text-align:center;line-height:1.6;padding:20px;
+  }
+  #photoMsg code{font-family:var(--mono);font-size:0.82rem;color:var(--text);}
+
   .stage-footer{
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-    flex-wrap:wrap;
-    gap:10px;
-    padding:12px 6px 2px;
+    display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;
+    gap:10px;padding:12px 6px 2px;
   }
   .fname{font-family:var(--mono);font-size:0.8rem;color:var(--text);}
-  .toolbar{display:flex;gap:8px;align-items:center;}
-  .toolbar label{display:flex;align-items:center;gap:5px;font-size:0.78rem;color:var(--muted);}
-  .toolbar input[type=checkbox]{accent-color:var(--accent);}
-  button.ghost{
-    background:transparent;border:1px solid var(--panel-border);color:var(--text);
-    padding:7px 11px;border-radius:6px;font-family:var(--sans);font-size:0.78rem;
-    cursor:pointer;
+  button.primary{
+    background:var(--accent);border:1px solid var(--accent);color:#fff;
+    padding:8px 14px;border-radius:6px;font-family:var(--sans);font-size:0.82rem;cursor:pointer;
   }
-  button.ghost:hover{border-color:var(--accent);}
-
-  .readout{
-    display:flex;
-    gap:18px;
-    flex-wrap:wrap;
-    padding:12px 6px 0;
-    font-family:var(--mono);font-size:0.78rem;
-    color:var(--muted);
-    border-top:1px solid var(--panel-border);
-    margin-top:10px;
-  }
-  .readout b{color:var(--text);font-weight:600;}
+  button.primary:hover{opacity:0.9;}
   #errBox{
-    display:none;
-    background:#fef2f2;
-    border:1px solid #fca5a5;
-    color:#c0392b;
-    border-radius:8px;
-    padding:10px 14px;
-    font-size:13px;
-    margin-bottom:10px;
+    display:none;background:#fef2f2;border:1px solid #fca5a5;color:#c0392b;
+    border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:10px;
   }
 </style>
 </head>
@@ -126,7 +69,7 @@
 <div class="page">
   <header>
     <h1>파일 저장소</h1>
-    <p class="sub">직접 만든 3D 모델(STL)을 모아두는 공간입니다. 목록에서 파일을 고르면 오른쪽에서 회전·확대해 볼 수 있습니다.</p>
+    <p class="sub">직접 만든 3D 모델(STL)을 모아두는 공간입니다. 목록에서 파일을 고르면 사진을 확인하고 다운로드할 수 있습니다.</p>
   </header>
   <div class="layout">
     <div class="filelist" id="fileList"></div>
@@ -134,275 +77,99 @@
     <div>
       <div id="errBox"></div>
       <div class="stage">
-        <canvas id="viewport"></canvas>
+        <img id="photo" alt="">
+        <div id="photoMsg"></div>
       </div>
       <div class="stage-footer">
         <span class="fname" id="fname">-</span>
-        <div class="toolbar">
-          <label><input type="checkbox" id="wireToggle"> 와이어프레임</label>
-          <label><input type="checkbox" id="spinToggle"> 자동 회전</label>
-          <button class="ghost" id="resetViewBtn">시점 초기화</button>
-          <button class="ghost" id="downloadBtn">⬇ 다운로드</button>
-        </div>
-      </div>
-      <div class="readout">
-        <span>삼각형 개수 <b id="triCount">-</b></span>
-        <span>크기 X <b id="dimX">-</b></span>
-        <span>크기 Y <b id="dimY">-</b></span>
-        <span>크기 Z <b id="dimZ">-</b></span>
+        <button class="primary" id="downloadBtn">⬇ 다운로드</button>
       </div>
     </div>
   </div>
 </div>
 
-<script type="importmap">
-{
-  "imports": {
-    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
-  }
-}
-</script>
-<script type="module">
-import * as THREE from "three";
-import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { STLLoader } from "three/addons/loaders/STLLoader.js";
+<script>
+// 저장소에 등록된 파일 목록.
+// file : 다운로드할 STL (index.html과 같은 폴더)
+// photo: 사진 경로 — GitHub 사진 폴더 이름에 맞게 아래 PHOTO_DIR만 바꾸면 됩니다.
+const PHOTO_DIR = "photos/";   // 예: "photos/", "images/", "사진/" (끝에 / 필수)
 
-// 저장소에 등록된 파일 목록. 새 STL을 추가하려면 같은 폴더에 파일을 올리고
-// 아래 배열에 { name, path } 한 줄만 추가하면 됩니다.
 const STORED_FILES = [
-  { name: "굴절계 (refracmeter)", path: "refracmeter.stl" }
+  { name: "굴절계 (refracmeter)", file: "refracmeter.stl", photo: "refracmeter.png" }
+  // 새 항목 추가: { name: "이름", file: "xxx.stl", photo: "xxx.png" }
 ];
 
 const fileListEl = document.getElementById('fileList');
-const canvas = document.getElementById('viewport');
-const stage = document.querySelector('.stage');
 const fnameEl = document.getElementById('fname');
 const errBox = document.getElementById('errBox');
-const wireToggle = document.getElementById('wireToggle');
-const spinToggle = document.getElementById('spinToggle');
-const resetViewBtn = document.getElementById('resetViewBtn');
+const photoEl = document.getElementById('photo');
+const photoMsg = document.getElementById('photoMsg');
+const downloadBtn = document.getElementById('downloadBtn');
 
-const triCountEl = document.getElementById('triCount');
-const dimXEl = document.getElementById('dimX');
-const dimYEl = document.getElementById('dimY');
-const dimZEl = document.getElementById('dimZ');
+let current = null;
 
-let renderer, scene, camera, controls, mesh, gridHelper;
-let entries = STORED_FILES.map(f => ({...f, source:'stored'}));
-let currentEntry = null;
-
-function initScene(){
-  const w = canvas.clientWidth || stage.clientWidth;
-  const h = 520;
-  canvas.width = w; canvas.height = h;
-
-  renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:true });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
-  renderer.setSize(w, h, false);
-
-  scene = new THREE.Scene();
-  camera = new THREE.PerspectiveCamera(45, w/h, 0.01, 10000);
-  camera.position.set(60,50,80);
-
-  const hemi = new THREE.HemisphereLight(0xffffff, 0xc9d5e8, 1.15);
-  scene.add(hemi);
-  const dir = new THREE.DirectionalLight(0xffffff, 1.0);
-  dir.position.set(1,1.4,1);
-  scene.add(dir);
-  const dir2 = new THREE.DirectionalLight(0x88a9e0, 0.35);
-  dir2.position.set(-1,-0.5,-1);
-  scene.add(dir2);
-
-  controls = new OrbitControls(camera, renderer.domElement);
-  controls.enableDamping = true;
-  controls.dampingFactor = 0.08;
-
-  gridHelper = new THREE.GridHelper(200, 20, 0xaebcd6, 0xd6dfec);
-  gridHelper.visible = false;
-  scene.add(gridHelper);
-
-  animate();
-  window.addEventListener('resize', onResize);
-}
-
-function onResize(){
-  const w = stage.clientWidth - 20;
-  const h = 520;
-  renderer.setSize(w, h, false);
-  camera.aspect = w/h;
-  camera.updateProjectionMatrix();
-}
-
-function animate(){
-  requestAnimationFrame(animate);
-  if (spinToggle.checked && mesh){ mesh.rotation.z += 0.006; }
-  controls.update();
-  renderer.render(scene, camera);
-}
-
-function clearMesh(){
-  if (mesh){ scene.remove(mesh); mesh.geometry.dispose(); mesh.material.dispose(); mesh=null; }
-}
-
-function fitAndShow(geometry, displayName){
-  clearMesh();
-  errBox.style.display = 'none';
-
-  geometry.computeVertexNormals();
-  geometry.center();
-
-  const material = new THREE.MeshStandardMaterial({
-    color: 0x4f6fd0,
-    metalness: 0.15,
-    roughness: 0.55,
-    wireframe: wireToggle.checked,
-    side: THREE.DoubleSide
-  });
-  mesh = new THREE.Mesh(geometry, material);
-  scene.add(mesh);
-
-  geometry.computeBoundingBox();
-  const bb = geometry.boundingBox;
-  const size = new THREE.Vector3();
-  bb.getSize(size);
-  const maxDim = Math.max(size.x, size.y, size.z) || 1;
-  const dist = maxDim * 2.2;
-  camera.position.set(dist*0.6, dist*0.5, dist*0.8);
-  camera.near = maxDim/1000;
-  camera.far = maxDim*100;
-  camera.updateProjectionMatrix();
-  controls.target.set(0,0,0);
-  controls.update();
-
-  gridHelper.scale.setScalar(Math.max(maxDim/100, 0.5));
-  gridHelper.visible = true;
-
-  const triCount = geometry.index ? geometry.index.count/3 : geometry.attributes.position.count/3;
-  triCountEl.textContent = triCount.toLocaleString();
-  dimXEl.textContent = size.x.toFixed(3);
-  dimYEl.textContent = size.y.toFixed(3);
-  dimZEl.textContent = size.z.toFixed(3);
-  fnameEl.textContent = displayName;
-}
-
-function loadFromPath(path, displayName){
-  const loader = new STLLoader();
-  loader.load(path, (geometry) => {
-    fitAndShow(geometry, displayName);
-  }, undefined, (err) => {
-    errBox.style.display = 'block';
-    errBox.textContent = '"' + path + '" 파일을 불러오지 못했습니다. 같은 폴더에 파일이 있는지 확인해주세요.';
-  });
-}
-
-function loadFromLocalFile(file){
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    try{
-      const loader = new STLLoader();
-      const geometry = loader.parse(e.target.result);
-      fitAndShow(geometry, file.name + ' (로컬 미리보기, 저장 안 됨)');
-    }catch(err){
-      errBox.style.display = 'block';
-      errBox.textContent = 'STL 파싱 중 오류: ' + err.message;
-    }
+function showPhoto(entry){
+  const src = PHOTO_DIR + entry.photo;
+  photoEl.style.display = 'none';
+  photoMsg.style.display = 'none';
+  photoEl.onload = () => { photoEl.style.display = 'block'; };
+  photoEl.onerror = () => {
+    photoMsg.style.display = 'block';
+    photoMsg.innerHTML = '사진을 불러오지 못했습니다.<br><code>' + src + '</code> 경로에 파일이 있는지 확인해주세요.';
   };
-  reader.readAsArrayBuffer(file);
+  photoEl.alt = entry.name;
+  photoEl.src = src;
+}
+
+function select(entry, itemEl){
+  document.querySelectorAll('.file-item').forEach(el => el.classList.remove('active'));
+  itemEl.classList.add('active');
+  current = entry;
+  errBox.style.display = 'none';
+  fnameEl.textContent = entry.file;
+  showPhoto(entry);
 }
 
 function renderList(){
   fileListEl.innerHTML = '';
-  entries.forEach((entry, idx) => {
+  STORED_FILES.forEach((entry) => {
     const item = document.createElement('div');
-    item.className = 'file-item' + (idx===0 ? ' active' : '');
-    item.innerHTML = `<span class="name">${entry.name}</span><span class="meta">${entry.source==='stored' ? entry.path : '로컬 파일'}</span>`;
-    item.addEventListener('click', () => {
-      document.querySelectorAll('.file-item').forEach(el=>el.classList.remove('active'));
-      item.classList.add('active');
-      currentEntry = entry;
-      if (entry.source === 'stored') loadFromPath(entry.path, entry.name);
-      else loadFromLocalFile(entry.fileObj);
-    });
+    item.className = 'file-item';
+    item.innerHTML = '<span class="name"></span><span class="meta"></span>';
+    item.querySelector('.name').textContent = entry.name;
+    item.querySelector('.meta').textContent = entry.file;
+    item.addEventListener('click', () => select(entry, item));
     fileListEl.appendChild(item);
   });
-
-  const addBtn = document.createElement('button');
-  addBtn.className = 'addbtn';
-  addBtn.textContent = '+ 내 컴퓨터에서 미리보기';
-  addBtn.addEventListener('click', () => fileInput.click());
-  fileListEl.appendChild(addBtn);
+  const first = fileListEl.querySelector('.file-item');
+  if (first) select(STORED_FILES[0], first);
 }
 
-const fileInput = document.createElement('input');
-fileInput.type = 'file';
-fileInput.accept = '.stl';
-document.body.appendChild(fileInput);
-fileInput.addEventListener('change', (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  entries.push({ name: file.name, source:'local', fileObj:file });
-  renderList();
-  document.querySelectorAll('.file-item')[entries.length-1].click();
-});
-
-const downloadBtn = document.getElementById('downloadBtn');
 downloadBtn.addEventListener('click', async () => {
-  if (!currentEntry) return;
-  const originalLabel = downloadBtn.textContent;
+  if (!current) return;
+  const label = downloadBtn.textContent;
   try{
-    if (currentEntry.source === 'local'){
-      // 로컬에서 불러온 파일은 File 객체를 그대로 다운로드
-      const url = URL.createObjectURL(currentEntry.fileObj);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = currentEntry.fileObj.name;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    } else {
-      // 저장소 파일은 fetch로 받아온 뒤 Blob으로 다운로드
-      downloadBtn.textContent = '받는 중...';
-      const res = await fetch(currentEntry.path);
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = currentEntry.path;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    }
+    downloadBtn.textContent = '받는 중...';
+    const res = await fetch(current.file);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = current.file;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
   }catch(err){
     errBox.style.display = 'block';
     errBox.textContent = '다운로드 중 오류가 발생했습니다: ' + err.message;
   }finally{
-    downloadBtn.textContent = originalLabel;
+    downloadBtn.textContent = label;
   }
 });
 
-wireToggle.addEventListener('change', () => { if (mesh) mesh.material.wireframe = wireToggle.checked; });
-resetViewBtn.addEventListener('click', () => {
-  if (!mesh) return;
-  const bb = mesh.geometry.boundingBox;
-  const size = new THREE.Vector3();
-  bb.getSize(size);
-  const maxDim = Math.max(size.x, size.y, size.z) || 1;
-  const dist = maxDim * 2.2;
-  camera.position.set(dist*0.6, dist*0.5, dist*0.8);
-  controls.target.set(0,0,0);
-  controls.update();
-});
-
-initScene();
 renderList();
-if (entries.length){
-  currentEntry = entries[0];
-  loadFromPath(entries[0].path, entries[0].name);
-}
 </script>
 </body>
 </html>
