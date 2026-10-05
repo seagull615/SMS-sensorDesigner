@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>가상색 스펙트럼 뷰어 (800–2000 nm)</title>
+<style>
+:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+--bg:#fafaf8;--fg:#1c1c1a;--mut:#6b6b66;--card:#fff;--line:#d9d9d2;--acc:#2a6fdb}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;padding:16px;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,"Segoe UI","Noto Sans KR",sans-serif}
+h1{font-size:18px;margin:0 0 12px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;min-width:0}
+.tabs{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+button{font:inherit;color:var(--fg);background:transparent;border:1px solid var(--line);border-radius:8px;padding:6px 12px;cursor:pointer}
+button.on{background:var(--acc);border-color:var(--acc);color:#fff}
+canvas{width:100%;height:300px;display:block;touch-action:none}
+.hint{font-size:13px;color:var(--mut);margin:8px 0 0;line-height:1.5}
+#sw{height:200px;border-radius:10px;border:1px solid var(--line)}
+#rgb{font-family:ui-monospace,Menlo,monospace;font-size:14px;margin-top:10px}
+</style>
+</head>
+<body>
+<h1>가상색 스펙트럼 뷰어 · 800–2000 nm</h1>
+<div class="grid">
+  <div class="card">
+    <div class="tabs">
+      <button data-m="DFB" class="on">DFB (선 여러 개)</button>
+      <button data-m="FP">FP</button>
+      <button data-m="SLD">SLD</button>
+      <button data-m="SC">Supercontinuum</button>
+      <button id="clr">모두 지우기</button>
+    </div>
+    <canvas id="cv"></canvas>
+    <p class="hint" id="hint"></p>
+  </div>
+  <div class="card">
+    <div id="sw"></div>
+    <div id="rgb"></div>
+    <p class="hint">기저(고정): R 1700 nm (폭 500), G 1350 nm (폭 500), B 1000 nm (폭 400), 가우시안으로 서로 많이 겹칩니다. 점선이 각 기저 대역입니다.</p>
+  </div>
+</div>
+<script>
+const LMIN=800,LMAX=2000,BAS={R:[1700,500],G:[1350,500],B:[1000,400]};
+const sg=w=>w/(2*Math.sqrt(2*Math.log(2)));
+const bas=(c,l)=>{const[m,w]=BAS[c],s=sg(w);return Math.exp(-((l-m)**2)/(2*s*s))};
+const N=2401,ST=(LMAX-LMIN)/(N-1),AREA={};
+for(const c of 'RGB'){let a=0;for(let i=0;i<N;i++)a+=bas(c,LMIN+i*ST)*ST;AREA[c]=a}
+const DL=0.8,FW=12,SW=80;
+const jit=[];for(let i=0;i<91;i++){const v=Math.sin(i*78.233)*43758.5453;jit.push(1+0.2*((v-Math.floor(v))-0.5))}
+let mode='DFB',lines=[{l:1064,p:1},{l:1550,p:0.9}],fp={c:1310},sld={c:1550},sc={c:1064},drag=false;
+const obj=()=>mode==='FP'?fp:mode==='SLD'?sld:sc;
+const ns=new Float64Array(N);for(let i=0;i<N;i++){const v=Math.sin(i*12.9898)*43758.5453;ns[i]=1+0.3*((v-Math.floor(v))-0.5)}
+const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+const M={l:44,r:12,t:10,b:34};
+let W=0,H=0;
+function sz(){const d=devicePixelRatio||1;W=cv.clientWidth;H=cv.clientHeight;cv.width=W*d;cv.height=H*d;ctx.setTransform(d,0,0,d,0,0);draw()}
+const X=l=>M.l+(l-LMIN)/(LMAX-LMIN)*(W-M.l-M.r);
+const L=x=>Math.min(LMAX,Math.max(LMIN,LMIN+(x-M.l)/(W-M.l-M.r)*(LMAX-LMIN)));
+const Y=p=>H-M.b-p*(H-M.b-M.t);
+function spec(){
+  let bars=[],curve=null;
+  if(mode==='DFB')bars=lines.map(o=>({l:o.l,p:o.p}));
+  else if(mode==='FP'){
+    for(let i=-45;i<=45;i++){const l=fp.c+i*DL;if(l<LMIN||l>LMAX)continue;
+      bars.push({l,p:Math.exp(-4*Math.log(2)*((i*DL)/FW)**2)*jit[i+45]})}
+    const mx=Math.max(...bars.map(b=>b.p),1e-9);bars.forEach(b=>b.p/=mx);
+  }else if(mode==='SLD'){
+    curve=new Float64Array(N);
+    for(let i=0;i<N;i++){const l=LMIN+i*ST;curve[i]=Math.exp(-4*Math.log(2)*((l-sld.c)/SW)**2)*(1+0.02*Math.sin(2*Math.PI*l/2.5))}
+  }else{
+    curve=new Float64Array(N);
+    for(let i=0;i<N;i++){const l=LMIN+i*ST;
+      const skirt=0.3*Math.exp(-(((l-(sc.c+186))/350)**2))+0.15*Math.exp(-(((l-(sc.c+636))/250)**2));
+      curve[i]=Math.min(1,Math.exp(-4*Math.log(2)*((l-sc.c)/3)**2)+skirt*ns[i])}
+  }
+  const acc=[0,0,0];
+  'RGB'.split('').forEach((c,k)=>{
+    if(curve){let s=0;for(let i=0;i<N;i++)s+=curve[i]*bas(c,LMIN+i*ST)*ST;acc[k]=s/AREA[c]}
+    else acc[k]=bars.reduce((s,b)=>s+b.p*bas(c,b.l),0)/AREA[c];
+  });
+  const mx=Math.max(...acc);
+  return{bars,curve,rgb:mx>0?acc.map(v=>v/mx):[0,0,0]};
+}
+function draw(){
+  const cs=getComputedStyle(document.documentElement),fg=cs.getPropertyValue('--fg').trim(),mut=cs.getPropertyValue('--mut').trim(),ln=cs.getPropertyValue('--line').trim();
+  ctx.clearRect(0,0,W,H);ctx.font='12px system-ui';ctx.fillStyle=mut;ctx.strokeStyle=ln;ctx.lineWidth=1;
+  for(let l=LMIN;l<=LMAX;l+=200){const x=X(l);ctx.beginPath();ctx.moveTo(x,M.t);ctx.lineTo(x,H-M.b);ctx.stroke();ctx.textAlign='center';ctx.fillText(l,x,H-M.b+16)}
+  for(let p=0;p<=1.001;p+=0.25){const y=Y(p);ctx.beginPath();ctx.moveTo(M.l,y);ctx.lineTo(W-M.r,y);ctx.stroke();ctx.textAlign='right';ctx.fillText(p.toFixed(2),M.l-6,y+4)}
+  ctx.textAlign='center';ctx.fillText('Wavelength [nm]',(W+M.l)/2,H-6);
+  ctx.setLineDash([5,4]);ctx.lineWidth=1.5;
+  [['R','#e03c3c'],['G','#2fa84f'],['B','#3c6ee0']].forEach(([c,col])=>{
+    ctx.strokeStyle=col;ctx.beginPath();
+    for(let i=0;i<=200;i++){const l=LMIN+i*(LMAX-LMIN)/200,x=X(l),y=Y(bas(c,l));i?ctx.lineTo(x,y):ctx.moveTo(x,y)}
+    ctx.stroke()});
+  ctx.setLineDash([]);
+  const s=spec();ctx.strokeStyle=fg;ctx.fillStyle=fg;ctx.lineWidth=2;
+  if(s.curve){
+    ctx.beginPath();ctx.moveTo(X(LMIN),Y(0));
+    for(let i=0;i<N;i+=1)ctx.lineTo(X(LMIN+i*ST),Y(s.curve[i]));
+    ctx.lineTo(X(LMAX),Y(0));ctx.closePath();ctx.globalAlpha=0.25;ctx.fill();ctx.globalAlpha=1;ctx.stroke();
+  }else s.bars.forEach(b=>{const x=X(b.l);ctx.beginPath();ctx.moveTo(x,Y(0));ctx.lineTo(x,Y(b.p));ctx.stroke();ctx.beginPath();ctx.arc(x,Y(b.p),2.5,0,7);ctx.fill()});
+  const c=s.rgb.map(v=>Math.round(255*v));
+  document.getElementById('sw').style.background=`rgb(${c})`;
+  document.getElementById('rgb').textContent=`RGB = [${s.rgb.map(v=>v.toFixed(3)).join(', ')}]`;
+}
+function hint(){
+  document.getElementById('hint').textContent=
+    mode==='DFB'?`그래프를 클릭하면 그 파장에 선이 추가됩니다 (클릭 높이 = 출력). 기존 선 근처를 클릭하면 삭제됩니다. 현재 ${lines.length}개.`
+    :mode==='FP'?`그래프를 클릭/드래그해서 중심파장을 이동하세요. 현재 ${fp.c.toFixed(0)} nm (이득폭 12 nm, 모드 간격 0.8 nm).`
+    :mode==='SLD'?`그래프를 클릭/드래그해서 중심파장을 이동하세요. 현재 ${sld.c.toFixed(0)} nm (폭 80 nm).`
+    :`그래프를 클릭/드래그해서 펌프 파장을 이동하세요 (넓은 스커트가 함께 이동). 현재 펌프 ${sc.c.toFixed(0)} nm, 스펙클 요동 포함.`;
+  cv.style.cursor=mode==='DFB'?'crosshair':'ew-resize';
+}
+function pt(e){const r=cv.getBoundingClientRect();return[e.clientX-r.left,e.clientY-r.top]}
+cv.addEventListener('pointerdown',e=>{
+  const[x,y]=pt(e),l=L(x);
+  if(mode==='DFB'){
+    const k=lines.findIndex(o=>Math.abs(X(o.l)-x)<10);
+    if(k>=0)lines.splice(k,1);
+    else if(lines.length<12)lines.push({l,p:Math.min(1,Math.max(0.1,(Y(0)-y)/(Y(0)-Y(1))))});
+  }else{drag=true;cv.setPointerCapture(e.pointerId);obj().c=l}
+  hint();draw();
+});
+cv.addEventListener('pointermove',e=>{if(!drag)return;obj().c=L(pt(e)[0]);hint();draw()});
+['pointerup','pointercancel'].forEach(t=>cv.addEventListener(t,()=>drag=false));
+document.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{
+  mode=b.dataset.m;document.querySelectorAll('[data-m]').forEach(x=>x.classList.toggle('on',x===b));hint();draw()});
+document.getElementById('clr').onclick=()=>{if(mode==='DFB'){lines=[];hint();draw()}};
+addEventListener('resize',sz);
+hint();sz();
+</script>
+</body>
+</html>

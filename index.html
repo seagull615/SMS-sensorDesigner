@@ -6,12 +6,13 @@
 <title>실험실</title>
 <style>
   :root{
-    --bg:#080d18;
-    --panel:#0f1729;
-    --panel-border:#22304c;
-    --text:#e7edf6;
-    --muted:#8b9bb4;
-    --accent:#43e0c5;
+    color-scheme:light;
+    --bg:#fafaf8;
+    --panel:#ffffff;
+    --panel-border:#d9d9d2;
+    --text:#1c1c1a;
+    --muted:#6b6b66;
+    --accent:#0f9d87;
     --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Malgun Gothic", sans-serif;
   }
   *{box-sizing:border-box;}
@@ -26,8 +27,9 @@
   .topbar{
     display:flex;
     align-items:center;
+    flex-wrap:wrap;
     gap:6px;
-    padding:14px 18px 0;
+    padding:10px 12px 0;
     border-bottom:1px solid var(--panel-border);
     background:var(--panel);
   }
@@ -35,15 +37,18 @@
     font-size:0.95rem;
     font-weight:600;
     color:var(--muted);
-    margin:0 18px 12px 4px;
+    margin:0 14px 8px 4px;
     letter-spacing:-0.01em;
     white-space:nowrap;
+  }
+  @media (max-width:700px){
+    .topbar h1{width:100%;margin:0 0 2px 4px;}
   }
   .tabs{
     display:flex;
     gap:4px;
-    flex:1;
-    overflow-x:auto;
+    flex:1 1 auto;
+    flex-wrap:wrap;
   }
   .tab{
     appearance:none;
@@ -53,7 +58,8 @@
     font-family:var(--sans);
     font-size:0.86rem;
     font-weight:500;
-    padding:10px 16px 12px;
+    padding:10px 14px;
+    min-height:44px;
     cursor:pointer;
     border-bottom:2px solid transparent;
     white-space:nowrap;
@@ -62,6 +68,7 @@
   .tab.active{
     color:var(--text);
     border-bottom-color:var(--accent);
+    background:rgba(15,157,135,0.08);
   }
   .tab:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;}
 
@@ -96,6 +103,7 @@
       <button class="tab" data-target="frame-paper" role="tab" aria-selected="false">논문</button>
       <button class="tab" data-target="frame-lensed-gf" role="tab" aria-selected="false">Lensed GF</button>
       <button class="tab" data-target="frame-tec" role="tab" aria-selected="false">TEC Simulator</button>
+      <button class="tab" data-target="frame-falsecolor" role="tab" aria-selected="false">가상색 스펙트럼</button>
     </div>
   </div>
 
@@ -111,6 +119,7 @@
     <iframe id="frame-paper" src="paper-dday-tracker.html" title="논문" loading="lazy"></iframe>
     <iframe id="frame-lensed-gf" src="lensed_GF_simulator__wideangle_.html" title="Lensed GF" loading="lazy"></iframe>
     <iframe id="frame-tec" src="TEC_simulator.html" title="TEC Simulator" loading="lazy"></iframe>
+    <iframe id="frame-falsecolor" src="falsecolor_spectrum_viewr.html" title="가상색 스펙트럼" loading="lazy"></iframe>
   </div>
 
 <script>
