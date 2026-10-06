@@ -25,6 +25,8 @@
     flex-direction:column;
   }
   .topbar{
+    position:relative;
+    z-index:10;
     display:flex;
     align-items:center;
     flex-wrap:wrap;
@@ -40,9 +42,6 @@
     margin:0 14px 8px 4px;
     letter-spacing:-0.01em;
     white-space:nowrap;
-  }
-  @media (max-width:700px){
-    .topbar h1{width:100%;margin:0 0 2px 4px;}
   }
   .tabs{
     display:flex;
@@ -72,6 +71,76 @@
   }
   .tab:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;}
 
+  /* 모바일 전용 메뉴 버튼 (데스크톱에서는 숨김) */
+  .menu-btn{
+    display:none;
+    appearance:none;
+    align-items:center;
+    justify-content:space-between;
+    gap:8px;
+    background:rgba(15,157,135,0.08);
+    border:1px solid var(--panel-border);
+    border-radius:8px;
+    color:var(--text);
+    font-family:var(--sans);
+    font-size:0.86rem;
+    font-weight:600;
+    padding:0 12px;
+    min-height:40px;
+    max-width:60%;
+    cursor:pointer;
+  }
+  .menu-btn .label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .menu-btn .chev{
+    flex:none;
+    width:8px;height:8px;
+    border-right:2px solid var(--muted);
+    border-bottom:2px solid var(--muted);
+    transform:rotate(45deg) translateY(-2px);
+    transition:transform .15s;
+  }
+  .menu-btn[aria-expanded="true"] .chev{transform:rotate(225deg) translateY(-2px);}
+  .menu-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+
+  @media (max-width:700px){
+    .topbar{
+      flex-wrap:nowrap;
+      justify-content:space-between;
+      padding:6px 12px;
+    }
+    .topbar h1{margin:0 8px 0 4px;}
+    .menu-btn{display:flex;margin-left:auto;}
+
+    /* 탭 목록: 평소엔 숨기고, 열면 화면을 밀지 않고 위에 겹쳐서 표시 */
+    .tabs{
+      display:none;
+      position:absolute;
+      top:100%;
+      left:0;
+      right:0;
+      padding:8px 12px 12px;
+      background:var(--panel);
+      border-bottom:1px solid var(--panel-border);
+      box-shadow:0 8px 16px rgba(0,0,0,0.12);
+      grid-template-columns:repeat(2,1fr);
+      gap:6px;
+      max-height:70vh;
+      overflow-y:auto;
+    }
+    .tabs.open{display:grid;}
+    .tab{
+      border:1px solid var(--panel-border);
+      border-radius:8px;
+      padding:8px 10px;
+      text-align:center;
+      white-space:normal;
+    }
+    .tab.active{
+      border-color:var(--accent);
+      border-bottom-color:var(--accent);
+    }
+  }
+
   .panes{
     flex:1;
     position:relative;
@@ -91,7 +160,11 @@
 <body>
   <div class="topbar">
     <h1>실험실</h1>
-    <div class="tabs" role="tablist">
+    <button class="menu-btn" id="menuBtn" aria-expanded="false" aria-controls="tabList">
+      <span class="label" id="menuLabel">SMS</span>
+      <span class="chev" aria-hidden="true"></span>
+    </button>
+    <div class="tabs" id="tabList" role="tablist">
       <button class="tab active" data-target="frame-sms" role="tab" aria-selected="true">SMS</button>
       <button class="tab" data-target="frame-prism" role="tab" aria-selected="false">프리즘 모델링</button>
       <button class="tab" data-target="frame-gaussian" role="tab" aria-selected="false">Gaussian Beam</button>
@@ -125,6 +198,27 @@
 <script>
   const tabs = document.querySelectorAll('.tab');
   const frames = document.querySelectorAll('.panes iframe');
+  const tabList = document.getElementById('tabList');
+  const menuBtn = document.getElementById('menuBtn');
+  const menuLabel = document.getElementById('menuLabel');
+
+  function setMenu(open){
+    tabList.classList.toggle('open', open);
+    menuBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+
+  menuBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    setMenu(!tabList.classList.contains('open'));
+  });
+
+  // 메뉴 바깥(탭 목록·버튼 외 영역)을 누르면 닫기
+  document.addEventListener('click', (e) => {
+    if (!tabList.contains(e.target) && !menuBtn.contains(e.target)) setMenu(false);
+  });
+  // iframe 안을 눌렀을 때도 닫히도록 (포커스가 iframe으로 넘어가면 window blur 발생)
+  window.addEventListener('blur', () => setMenu(false));
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') setMenu(false); });
 
   tabs.forEach(tab => {
     tab.addEventListener('click', () => {
@@ -134,6 +228,9 @@
       tab.classList.add('active');
       tab.setAttribute('aria-selected','true');
       document.getElementById(tab.dataset.target).classList.add('active');
+
+      menuLabel.textContent = tab.textContent.trim();
+      setMenu(false);
     });
   });
 </script>
