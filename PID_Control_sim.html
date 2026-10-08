@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>PID 제어 시뮬레이터</title>
+<style>
+:root{--bg:#f5f7fa;--panel:#fff;--ink:#1b2430;--mute:#5f6b7a;--line:#d8dee6;--ref:#8a94a3;--out:#1f6feb;--ctl:#d4780f;--ok:#1a8a4a;--bad:#c93c3c;color-scheme:light;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 system-ui,-apple-system,"Apple SD Gothic Neo","Noto Sans KR",sans-serif}
+main{max-width:980px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:22px;margin:0 0 4px}
+p.sub{margin:0 0 16px;color:var(--mute)}
+.eq{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:14px;overflow-x:auto;white-space:pre;color:var(--mute)}
+.grid{display:grid;grid-template-columns:260px 1fr;gap:14px}
+@media(max-width:760px){.grid{grid-template-columns:1fr}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px}
+.panel h2{font-size:14px;margin:0 0 10px}
+.row{margin-bottom:10px}
+.row label{display:flex;justify-content:space-between;font-size:13px;color:var(--mute)}
+.row b{color:var(--ink);font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;accent-color:var(--out)}
+.btns{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+button{font:inherit;font-size:13px;padding:5px 10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:6px;cursor:pointer}
+button:hover{border-color:var(--out)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--out);outline-offset:2px}
+canvas{width:100%;display:block;border-radius:6px}
+.legend{display:flex;gap:14px;font-size:12px;color:var(--mute);margin:6px 0 10px}
+.legend i{display:inline-block;width:14px;height:3px;border-radius:2px;margin-right:5px;vertical-align:middle}
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px}
+@media(max-width:520px){.metrics{grid-template-columns:repeat(2,1fr)}}
+.m{border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.m span{display:block;font-size:12px;color:var(--mute)}
+.m b{font-size:17px;font-variant-numeric:tabular-nums}
+.ctrl{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
+select{font:inherit;font-size:13px;padding:5px 8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:6px}
+.note{margin-top:14px;color:var(--mute);font-size:13px}
+.chk{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--mute)}
+</style>
+</head>
+<body>
+<main>
+<h1>PID 제어 시뮬레이터</h1>
+<p class="sub">2차 시스템에 PID를 걸고, 게인을 움직여 계단응답이 어떻게 변하는지 봅니다.</p>
+<div class="eq">플랜트   G(s) = ωn² / (s² + 2ζωn·s + ωn²)
+제어기   C(s) = Kp + Ki/s + Kd·s
+폐루프   T(s) = C·G / (1 + C·G)</div>
+<div class="grid">
+  <section class="panel">
+    <h2>제어기 게인</h2>
+    <div class="btns">
+      <button data-p="2,0,0">P</button>
+      <button data-p="2,2,0">PI</button>
+      <button data-p="2,2,0.6">PID</button>
+      <button data-p="12,0,0">Kp 과다</button>
+    </div>
+    <div class="row"><label>Kp <b id="v-kp"></b></label><input id="kp" type="range" min="0" max="20" step="0.1" value="2"></div>
+    <div class="row"><label>Ki <b id="v-ki"></b></label><input id="ki" type="range" min="0" max="20" step="0.1" value="2"></div>
+    <div class="row"><label>Kd <b id="v-kd"></b></label><input id="kd" type="range" min="0" max="5" step="0.05" value="0.6"></div>
+    <h2 style="margin-top:16px">플랜트</h2>
+    <div class="row"><label>고유주파수 ωn (rad/s) <b id="v-wn"></b></label><input id="wn" type="range" min="0.5" max="10" step="0.1" value="3"></div>
+    <div class="row"><label>감쇠비 ζ <b id="v-z"></b></label><input id="z" type="range" min="0.05" max="2" step="0.05" value="0.5"></div>
+    <label class="chk"><input id="dist" type="checkbox" checked> t=6초에 외란(−0.3) 인가</label>
+  </section>
+  <section class="panel">
+    <h2>애니메이션</h2>
+    <div class="ctrl">
+      <button id="play">▶ 재생</button>
+      <button id="reset">↺ 처음으로</button>
+      <select id="speed" aria-label="재생 속도"><option value="0.5">0.5배속</option><option value="1" selected>1배속</option><option value="2">2배속</option></select>
+    </div>
+    <canvas id="c0" height="150" role="img" aria-label="스프링-질량 애니메이션"></canvas>
+    <p class="note" style="margin:6px 0 16px">벽에 스프링으로 연결된 공이 출력 y이고, 점선이 목표 위치예요. 주황 화살표가 제어기 출력 u이고, 길이는 u에 비례합니다(너무 크면 잘려요). 1초에 목표가 바뀌고, 외란을 켜면 6초에 한 번 밀립니다.</p>
+    <h2>출력 y(t)와 목표값 r(t)</h2>
+    <div class="legend"><span><i style="background:var(--ref)"></i>목표 r</span><span><i style="background:var(--out)"></i>출력 y</span></div>
+    <canvas id="c1" height="260" role="img" aria-label="출력 응답 그래프"></canvas>
+    <h2 style="margin-top:14px">제어 입력 u(t)</h2>
+    <div class="legend"><span><i style="background:var(--ctl)"></i>제어 입력 u</span></div>
+    <canvas id="c2" height="130" role="img" aria-label="제어 입력 그래프"></canvas>
+    <div class="metrics">
+      <div class="m"><span>오버슈트</span><b id="m-os">-</b></div>
+      <div class="m"><span>상승시간 (10→90%)</span><b id="m-tr">-</b></div>
+      <div class="m"><span>정정시간 (2%)</span><b id="m-ts">-</b></div>
+      <div class="m"><span>정상상태 오차</span><b id="m-ss">-</b></div>
+    </div>
+    <p class="note">Ki를 0으로 두면 정상상태 오차가 남고, Ki를 키우면 오차는 사라지지만 오버슈트가 커집니다. Kd는 출력의 빠른 변화를 눌러 진동을 줄입니다.</p>
+  </section>
+</div>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const ids=['kp','ki','kd','wn','z'];
+let S=null,Y1=1.5,U1=2,playT=0,playing=false,last=null,speed=1;
+const T=10,dt=0.001,N=Math.round(T/dt),tStep=1,tDist=6;
+
+function simulate(){
+  const kp=+$('kp').value,ki=+$('ki').value,kd=+$('kd').value,wn=+$('wn').value,z=+$('z').value,dist=$('dist').checked;
+  let x=0,v=0,I=0,df=0,yPrev=0;
+  const tau=0.02,t=[],y=[],u=[],r=[];
+  for(let i=0;i<N;i++){
+    const ti=i*dt,ref=ti>=tStep?1:0,e=ref-x;
+    I+=e*dt;
+    const dRaw=-(x-yPrev)/dt; df+=(dRaw-df)*dt/tau; yPrev=x;
+    const uc=kp*e+ki*I+kd*df;
+    const d=(dist&&ti>=tDist)?-0.3:0;
+    const a=wn*wn*(uc+d-x)-2*z*wn*v;
+    v+=a*dt; x+=v*dt;
+    if(!isFinite(x)||Math.abs(x)>1e6){for(let k=i;k<N;k+=10){t.push(k*dt);y.push(NaN);u.push(NaN);r.push(k*dt>=tStep?1:0)}break}
+    if(i%10===0){t.push(ti);y.push(x);u.push(uc);r.push(ref)}
+  }
+  return{t,y,u,r};
+}
+
+function metrics(s){
+  const {t,y}=s,i0=t.findIndex(a=>a>=tStep),end=t.findIndex(a=>a>=tDist);
+  const seg=[];for(let i=i0;i<(end>0?end:t.length);i++)seg.push([t[i]-tStep,y[i]]);
+  if(seg.some(p=>isNaN(p[1])))return null;
+  const fin=seg.slice(-100).reduce((a,p)=>a+p[1],0)/100;
+  const peak=Math.max(...seg.map(p=>p[1]));
+  const os=Math.max(0,(peak-1)*100);
+  const f=(lv)=>{const p=seg.find(q=>q[1]>=lv);return p?p[0]:null};
+  const a=f(0.1),b=f(0.9),tr=(a!==null&&b!==null)?b-a:null;
+  let ts=null;for(let i=seg.length-1;i>=0;i--){if(Math.abs(seg[i][1]-1)>0.02){ts=i===seg.length-1?null:seg[i+1][0];break}if(i===0)ts=0}
+  return{os,tr,ts,ss:1-fin};
+}
+
+function draw(cv,s,series,ymin,ymax,refLine){
+  const dpr=window.devicePixelRatio||1,w=cv.clientWidth,h=cv.clientHeight;
+  cv.width=w*dpr;cv.height=h*dpr;
+  const g=cv.getContext('2d');g.scale(dpr,dpr);
+  const cs=getComputedStyle(document.documentElement),L=cs.getPropertyValue('--line'),M=cs.getPropertyValue('--mute');
+  const pl=36,pr=8,pt=8,pb=20,X=t=>pl+(t/T)*(w-pl-pr),Y=v=>pt+(1-(v-ymin)/(ymax-ymin))*(h-pt-pb);
+  g.font='11px system-ui';g.fillStyle=M;g.strokeStyle=L;g.lineWidth=1;
+  const step=(ymax-ymin)/4;
+  for(let k=0;k<=4;k++){const v=ymin+k*step,yy=Y(v);g.beginPath();g.moveTo(pl,yy);g.lineTo(w-pr,yy);g.stroke();g.textAlign='right';g.fillText(v.toFixed(1),pl-5,yy+4)}
+  g.textAlign='center';for(let k=0;k<=10;k+=2)g.fillText(k+'s',X(k),h-5);
+  if(refLine){g.strokeStyle=cs.getPropertyValue('--ref');g.beginPath();s.t.forEach((tt,i)=>{const px=X(tt),py=Y(s.r[i]);i?g.lineTo(px,py):g.moveTo(px,py)});g.stroke()}
+  g.strokeStyle=cs.getPropertyValue(series.color);g.lineWidth=2;g.beginPath();let pen=false;
+  s[series.key].forEach((val,i)=>{if(isNaN(val)){pen=false;return}const py=Math.max(pt,Math.min(h-pb,Y(val))),px=X(s.t[i]);pen?g.lineTo(px,py):g.moveTo(px,py);pen=true});
+  g.stroke();
+  if(playT>0){g.strokeStyle=M;g.lineWidth=1;g.setLineDash([4,3]);g.beginPath();g.moveTo(X(playT),pt);g.lineTo(X(playT),h-pb);g.stroke();g.setLineDash([])}
+}
+
+function renderAnim(){
+  const cv=$('c0'),dpr=window.devicePixelRatio||1,w=cv.clientWidth,h=cv.clientHeight;
+  cv.width=w*dpr;cv.height=h*dpr;
+  const g=cv.getContext('2d');g.scale(dpr,dpr);
+  const cs=getComputedStyle(document.documentElement),col=n=>cs.getPropertyValue(n);
+  const pl=90,pr=30,L0=60,X=v=>pl+(v+0.5)/2.5*(w-pl-pr),cy=h/2-8;
+  const i=Math.min(S.t.length-1,Math.round(playT/0.01)),y=S.y[i],u=S.u[i],r=S.r[i],bad=isNaN(y);
+  g.strokeStyle=col('--line');g.lineWidth=1;g.beginPath();g.moveTo(8,cy+34);g.lineTo(w-8,cy+34);g.stroke();
+  g.strokeStyle=col('--ref');g.setLineDash([5,4]);g.beginPath();g.moveTo(X(r),cy-52);g.lineTo(X(r),cy+34);g.stroke();g.setLineDash([]);
+  g.fillStyle=col('--mute');g.font='11px system-ui';g.textAlign='center';g.fillText('목표',X(r),cy-56);
+  const yc=bad?2.0:Math.max(-0.5,Math.min(2.0,y)),bx=X(yc),R=16,wx=30;
+  g.strokeStyle=col('--mute');g.lineWidth=2;g.beginPath();g.moveTo(wx,cy-50);g.lineTo(wx,cy+34);g.stroke();
+  g.lineWidth=1;for(let k=0;k<9;k++){const yy=cy-50+k*10;g.beginPath();g.moveTo(wx,yy+10);g.lineTo(wx-9,yy);g.stroke()}
+  g.lineWidth=2;g.lineJoin='round';g.beginPath();g.moveTo(wx,cy);
+  const sx=bx-R,n=12,len=sx-wx;for(let k=0;k<n;k++){const a=wx+len*(k+0.5)/n;g.lineTo(a,cy+(k%2?10:-10))}
+  g.lineTo(sx,cy);g.stroke();
+  g.fillStyle=bad?col('--bad'):col('--out');g.beginPath();g.arc(bx,cy,R,0,Math.PI*2);g.fill();
+  if(!bad&&Math.abs(u)>0.02){
+    const dir=Math.sign(u),L=Math.min(70,Math.abs(u)*14),x0=bx,x1=bx+dir*(R+L),ay=cy-R-14;
+    g.strokeStyle=col('--ctl');g.fillStyle=col('--ctl');g.lineWidth=3;g.beginPath();g.moveTo(x0,ay);g.lineTo(x1-dir*6,ay);g.stroke();
+    g.beginPath();g.moveTo(x1,ay);g.lineTo(x1-dir*10,ay-6);g.lineTo(x1-dir*10,ay+6);g.closePath();g.fill();
+  }
+  g.fillStyle=col('--mute');g.textAlign='left';
+  g.fillText(bad?'발산':'t = '+playT.toFixed(2)+' s    y = '+y.toFixed(2)+'    u = '+u.toFixed(2),10,h-8);
+}
+
+function redraw(){
+  draw($('c1'),S,{key:'y',color:'--out'},-0.5,Y1,true);
+  draw($('c2'),S,{key:'u',color:'--ctl'},-U1,U1,false);
+  renderAnim();
+}
+
+function setPlayBtn(){$('play').textContent=playing?'⏸ 일시정지':'▶ 재생'}
+function tick(ts){
+  if(!playing)return;
+  if(last===null)last=ts;
+  playT+=(ts-last)/1000*speed;last=ts;
+  if(playT>=T){playT=T;playing=false;setPlayBtn()}
+  redraw();
+  if(playing)requestAnimationFrame(tick);
+}
+$('play').addEventListener('click',()=>{
+  if(playing){playing=false}else{if(playT>=T)playT=0;playing=true;last=null;requestAnimationFrame(tick)}
+  setPlayBtn();
+});
+$('reset').addEventListener('click',()=>{playing=false;playT=0;setPlayBtn();redraw()});
+$('speed').addEventListener('change',e=>{speed=+e.target.value});
+
+function fmt(v,u,d=2){return v===null||v===undefined?'—':v.toFixed(d)+u}
+function update(){
+  ids.forEach(i=>$('v-'+i).textContent=(+$(i).value).toFixed(i==='kd'||i==='z'?2:1));
+  const s=simulate(),m=metrics(s);
+  const ys=s.y.filter(isFinite),ymax=Math.max(1.5,Math.min(3,Math.ceil(Math.max(...ys,1.2)*2)/2));
+  Y1=ymax;S=s;
+  const us=s.u.filter(isFinite),um=Math.max(2,Math.min(40,Math.ceil(Math.max(...us.map(Math.abs),1))));
+  U1=um;redraw();
+  if(!m){['os','tr','ts','ss'].forEach(k=>$('m-'+k).textContent='발산');return}
+  $('m-os').textContent=fmt(m.os,'%',1);$('m-tr').textContent=fmt(m.tr,'s');
+  $('m-ts').textContent=fmt(m.ts,'s');$('m-ss').textContent=fmt(m.ss,'',3);
+}
+ids.concat('dist').forEach(i=>$(i).addEventListener('input',update));
+document.querySelectorAll('[data-p]').forEach(b=>b.addEventListener('click',()=>{
+  const [a,c,d]=b.dataset.p.split(',');$('kp').value=a;$('ki').value=c;$('kd').value=d;update()}));
+addEventListener('resize',update);
+update();
+</script>
+</body>
+</html>

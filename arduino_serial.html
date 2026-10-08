@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>아두이노 시리얼 콘솔</title>
+<style>
+:root{--bg:#e8eef3;--ink:#16314a;--mute:#5d7488;--line:#b9c8d4;--card:#f6f9fb;--ok:#1f7a5a;--bad:#c2413b;--key:#fdfefe;--black:#16314a}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1c27;--ink:#dce8f1;--mute:#8aa2b5;--line:#2b4254;--card:#162736;--ok:#4cc9a0;--bad:#ef7b74;--key:#e9f1f7;--black:#050b11}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 "Pretendard","Noto Sans KR",system-ui,sans-serif;padding:24px 16px 48px}
+main{max-width:760px;margin:0 auto}
+h1{font-size:26px;margin:0 0 4px}
+p.sub{margin:0 0 20px;color:var(--mute)}
+section{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px;margin-bottom:16px}
+h2{font-size:16px;margin:0 0 12px}
+button{font:inherit;color:var(--ink);background:transparent;border:1px solid var(--ink);border-radius:6px;padding:7px 14px;cursor:pointer}
+button:hover{background:var(--ink);color:var(--bg)}
+button:focus-visible,textarea:focus-visible,input:focus-visible{outline:3px solid #3b8bd9;outline-offset:2px}
+button:disabled{opacity:.4;cursor:not-allowed}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+#status{font-weight:600}
+#status.on{color:var(--ok)}#status.off{color:var(--bad)}
+.piano{position:relative;height:150px;margin:6px 0 10px;user-select:none;touch-action:manipulation}
+.w,.b{position:absolute;top:0;border:1px solid var(--black);cursor:pointer;padding:0;border-radius:0 0 6px 6px}
+.w{background:var(--key);height:150px;color:var(--black);display:flex;align-items:flex-end;justify-content:center;padding-bottom:8px;font-size:12px}
+.b{background:var(--black);height:92px;width:7.2%;z-index:2;color:var(--key)}
+.w:hover:not(:disabled){background:#cfe3f4;color:var(--black)}.b:hover:not(:disabled){background:#3b6d99}
+.w:active:not(:disabled){background:#a9cdea;color:var(--black)}
+label{display:block;font-size:13px;color:var(--mute);margin-bottom:4px}
+textarea,input[type=number]{width:100%;font:14px/1.5 ui-monospace,Consolas,monospace;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px}
+input[type=number]{width:90px}
+textarea{resize:vertical}
+pre{margin:0;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:12px;overflow-x:auto;font:13px/1.5 ui-monospace,Consolas,monospace;max-height:320px}
+#log{height:150px;overflow:auto;white-space:pre-wrap}
+.note{font-size:13px;color:var(--mute);margin:8px 0 0}
+</style>
+</head>
+<body>
+<main>
+<h1>아두이노 시리얼 콘솔</h1>
+<p class="sub">브라우저에서 USB로 연결된 아두이노를 직접 제어합니다. Chrome·Edge 필요.</p>
+
+<section>
+  <h2>1. 연결</h2>
+  <div class="row">
+    <button id="connect">아두이노 연결</button>
+    <button id="disconnect" disabled>연결 해제</button>
+    <span id="status" class="off">연결 안 됨</span>
+  </div>
+  <p class="note">먼저 아래 4번의 스케치를 보드에 업로드하세요. 업로드할 때는 Arduino IDE의 시리얼 모니터를 닫아 둬야 포트가 열립니다.</p>
+</section>
+
+<section>
+  <h2>2. 건반으로 연주</h2>
+  <div class="piano" id="piano"></div>
+  <div class="row">
+    <label for="dur" style="margin:0">길이(ms)</label>
+    <input type="number" id="dur" value="300" min="20" max="3000" step="10">
+    <button id="stop" disabled>소리 멈춤</button>
+  </div>
+</section>
+
+<section>
+  <h2>3. 멜로디 재생 · 코드 내보내기</h2>
+  <label for="melody">음이름:길이(ms) 또는 주파수:길이, 공백으로 구분 (쉼표는 R:길이)</label>
+  <textarea id="melody" rows="3">C4:300 D4:300 E4:300 C4:300 E4:300 C4:300 E4:600</textarea>
+  <div class="row" style="margin-top:10px">
+    <button id="play" disabled>보드로 재생</button>
+    <button id="export">아두이노 배열로 변환</button>
+  </div>
+  <pre id="exp" style="margin-top:10px;display:none"></pre>
+</section>
+
+<section>
+  <h2>센서 읽기 (A0)</h2>
+  <div class="row"><button id="read" disabled>A0 한 번 읽기</button><button id="auto" disabled>0.2초마다 읽기</button></div>
+  <pre id="log" style="margin-top:10px">대기 중…</pre>
+</section>
+
+<section>
+  <h2>4. 보드에 올릴 스케치</h2>
+  <div class="row" style="margin-bottom:10px"><button id="copy">스케치 복사</button></div>
+<pre id="sketch">#define SPEAKER_PIN 8
+
+String line;
+
+void setup() {
+  Serial.begin(9600);
+}
+
+void loop() {
+  while (Serial.available()) {
+    char c = Serial.read();
+    if (c == '\n') { handle(line); line = ""; }
+    else if (c != '\r') line += c;
+  }
+}
+
+void handle(String s) {
+  if (s.startsWith("T")) {            // T주파수,길이
+    int comma = s.indexOf(',');
+    int f  = s.substring(1, comma).toInt();
+    int ms = s.substring(comma + 1).toInt();
+    tone(SPEAKER_PIN, f, ms);
+    Serial.println("OK " + String(f) + "Hz");
+  } else if (s == "S") {              // 멈춤
+    noTone(SPEAKER_PIN);
+    Serial.println("OK stop");
+  } else if (s == "R") {              // A0 읽기
+    Serial.println("A0 " + String(analogRead(A0)));
+  }
+}</pre>
+</section>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+let port, writer, reader, keepReading = false, autoTimer = null;
+
+// ---------- 음계 ----------
+const SEMI = {C:0,D:2,E:4,F:5,G:7,A:9,B:11};
+function freqOf(tok){
+  const m = /^([A-G])(#?)(\d)$/i.exec(tok);
+  if(m){
+    const n = SEMI[m[1].toUpperCase()] + (m[2] ? 1 : 0) + (parseInt(m[3]) + 1) * 12;
+    return Math.round(440 * Math.pow(2, (n - 69) / 12));
+  }
+  if(/^R$/i.test(tok)) return 0;
+  const f = parseInt(tok);
+  return isNaN(f) ? null : f;
+}
+function parseMelody(text){
+  const out = [];
+  for(const part of text.trim().split(/\s+/)){
+    if(!part) continue;
+    const [t, d] = part.split(':');
+    const f = freqOf(t), ms = parseInt(d);
+    if(f === null || isNaN(ms)) throw new Error('이해할 수 없는 항목: ' + part);
+    out.push([f, ms]);
+  }
+  return out;
+}
+
+// ---------- 건반 ----------
+const keys = [['C4','도'],['D4','레'],['E4','미'],['F4','파'],['G4','솔'],['A4','라'],['B4','시'],['C5','도']];
+const blacks = [['C#4',1],['D#4',2],['F#4',4],['G#4',5],['A#4',6]];
+const piano = $('piano');
+keys.forEach(([n,k],i)=>{
+  const b = document.createElement('button');
+  b.className='w'; b.style.left=(i*12.5)+'%'; b.style.width='12.5%';
+  b.textContent=k; b.dataset.note=n; b.disabled=true; b.setAttribute('aria-label',n);
+  piano.appendChild(b);
+});
+blacks.forEach(([n,pos])=>{
+  const b = document.createElement('button');
+  b.className='b'; b.style.left=(pos*12.5-3.6)+'%';
+  b.dataset.note=n; b.disabled=true; b.setAttribute('aria-label',n);
+  piano.appendChild(b);
+});
+piano.addEventListener('click', e=>{
+  const n = e.target.dataset.note;
+  if(n) send(`T${freqOf(n)},${$('dur').value}`);
+});
+
+// ---------- 시리얼 ----------
+function log(s){ const l=$('log'); if(l.textContent==='대기 중…') l.textContent=''; l.textContent += s + '\n'; l.scrollTop = l.scrollHeight; }
+function setUI(on){
+  $('status').textContent = on ? '연결됨' : '연결 안 됨';
+  $('status').className = on ? 'on' : 'off';
+  $('connect').disabled = on; $('disconnect').disabled = !on;
+  ['stop','play','read','auto'].forEach(id => $(id).disabled = !on);
+  document.querySelectorAll('.w,.b').forEach(b => b.disabled = !on);
+  if(!on) stopAuto();
+}
+async function send(cmd){
+  if(!writer) return;
+  try{ await writer.write(cmd + '\n'); }catch(e){ log('전송 실패: ' + e.message); }
+}
+async function readLoop(){
+  const dec = new TextDecoderStream();
+  const closed = port.readable.pipeTo(dec.writable).catch(()=>{});
+  reader = dec.readable.getReader();
+  let buf = '';
+  try{
+    while(keepReading){
+      const {value, done} = await reader.read();
+      if(done) break;
+      buf += value;
+      let i;
+      while((i = buf.indexOf('\n')) >= 0){ const ln = buf.slice(0,i).trim(); buf = buf.slice(i+1); if(ln) log('← ' + ln); }
+    }
+  }catch(e){ log('읽기 중단: ' + e.message); }
+  finally{ reader.releaseLock(); await closed; }
+}
+$('connect').onclick = async () => {
+  if(!('serial' in navigator)){ alert('이 브라우저는 Web Serial을 지원하지 않습니다. Chrome 또는 Edge를 사용하고, 주소가 https여야 합니다.'); return; }
+  try{
+    port = await navigator.serial.requestPort();
+    await port.open({baudRate: 9600});
+    const enc = new TextEncoderStream();
+    enc.readable.pipeTo(port.writable);
+    writer = enc.writable.getWriter();
+    keepReading = true; setUI(true); log('연결됨 (9600 baud)');
+    readLoop();
+  }catch(e){ log('연결 실패: ' + e.message); }
+};
+$('disconnect').onclick = async () => {
+  keepReading = false; stopAuto();
+  try{ await reader.cancel(); }catch(e){}
+  try{ await writer.close(); }catch(e){}
+  try{ await port.close(); }catch(e){}
+  writer = reader = port = null; setUI(false); log('연결 해제');
+};
+if('serial' in navigator){
+  navigator.serial.addEventListener('disconnect', () => { keepReading=false; writer=reader=port=null; setUI(false); log('보드가 분리되었습니다'); });
+}
+
+// ---------- 버튼 ----------
+$('stop').onclick = () => send('S');
+$('read').onclick = () => send('R');
+function stopAuto(){ if(autoTimer){ clearInterval(autoTimer); autoTimer=null; $('auto').textContent='0.2초마다 읽기'; } }
+$('auto').onclick = () => {
+  if(autoTimer){ stopAuto(); return; }
+  autoTimer = setInterval(() => send('R'), 200); $('auto').textContent = '자동 읽기 멈춤';
+};
+$('play').onclick = async () => {
+  let seq; try{ seq = parseMelody($('melody').value); }catch(e){ alert(e.message); return; }
+  $('play').disabled = true;
+  for(const [f, ms] of seq){
+    if(!writer) break;
+    if(f > 0) await send(`T${f},${ms}`);
+    await new Promise(r => setTimeout(r, ms + 10));
+  }
+  if(writer) $('play').disabled = false;
+};
+$('export').onclick = () => {
+  let seq; try{ seq = parseMelody($('melody').value); }catch(e){ alert(e.message); return; }
+  const e = $('exp'); e.style.display = 'block';
+  e.textContent = `int notes[]   = {${seq.map(s=>s[0]).join(', ')}};\nint lengths[] = {${seq.map(s=>s[1]).join(', ')}};\nint noteCount = sizeof(notes) / sizeof(notes[0]);`;
+};
+$('copy').onclick = async () => {
+  try{ await navigator.clipboard.writeText($('sketch').textContent); $('copy').textContent = '복사됨'; setTimeout(()=>$('copy').textContent='스케치 복사',1500); }
+  catch(e){ alert('복사하지 못했습니다. 직접 선택해서 복사하세요.'); }
+};
+</script>
+</body>
+</html>

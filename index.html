@@ -222,6 +222,7 @@
       <button class="cat active" data-cat="optics" role="tab" aria-selected="true">광학/광섬유 일반</button>
       <button class="cat" data-cat="amp" role="tab" aria-selected="false">증폭기</button>
       <button class="cat" data-cat="control" role="tab" aria-selected="false">제어공학</button>
+      <button class="cat" data-cat="arduino" role="tab" aria-selected="false">아두이노 및 외부기기</button>
       <button class="cat" data-cat="misc" role="tab" aria-selected="false">기타</button>
     </div>
     <button class="menu-btn" id="menuBtn" aria-expanded="false" aria-controls="tabList">
@@ -243,6 +244,7 @@
       <button class="tab" data-cat="optics" data-target="frame-falsecolor" role="tab" aria-selected="false">가상색 스펙트럼</button>
       <button class="tab" data-cat="amp" data-target="frame-amp" role="tab" aria-selected="false">증폭기</button>
       <button class="tab" data-cat="control" data-target="frame-control" role="tab" aria-selected="false">제어공학</button>
+      <button class="tab" data-cat="arduino" data-target="frame-arduino" role="tab" aria-selected="false">아두이노 시리얼</button>
     </div>
   </div>
 
@@ -264,11 +266,9 @@
       <strong>증폭기</strong>
       <span>준비 중입니다</span>
     </div>
-    <!-- 제어공학: 나중에 <iframe id="frame-control" src="파일.html" ...>로 교체하면 됨 -->
-    <div id="frame-control" class="placeholder">
-      <strong>제어공학</strong>
-      <span>준비 중입니다</span>
-    </div>
+    <iframe id="frame-control" src="PID_Control_sim.html" title="제어공학" loading="lazy"></iframe>
+    <!-- Web Serial을 쓰려면 iframe에 allow="serial"이 필요함 -->
+    <iframe id="frame-arduino" src="arduino_serial.html" title="아두이노 시리얼" allow="serial" loading="lazy"></iframe>
   </div>
 
 <script>
