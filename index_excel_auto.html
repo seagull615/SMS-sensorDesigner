@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Paper Progress</title>
+
+<!-- Excel(.xlsx) 읽기 -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+
+<style>
+:root{
+  --bg:#f7f8fa;
+  --panel:#ffffff;
+  --border:#dfe3ea;
+  --text:#1a2233;
+  --muted:#6b7688;
+  --accent:#0f9d8a;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,
+         "Noto Sans KR","Malgun Gothic",sans-serif;
+}
+
+*{box-sizing:border-box}
+
+html,body{
+  margin:0;
+  padding:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family:var(--sans);
+}
+
+.wrap{
+  width:min(1200px,94%);
+  margin:auto;
+  padding:36px 0 60px;
+}
+
+header{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+  margin-bottom:20px;
+}
+
+h1{
+  margin:0;
+  font-size:1.35rem;
+  font-weight:600;
+}
+
+.status{
+  color:var(--muted);
+  font-size:.82rem;
+}
+
+.panel{
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:10px;
+  overflow:hidden;
+}
+
+.toolbar{
+  padding:14px 16px;
+  border-bottom:1px solid var(--border);
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;
+}
+
+.sheet-btn{
+  border:1px solid var(--border);
+  background:white;
+  color:var(--text);
+  border-radius:7px;
+  padding:7px 11px;
+  cursor:pointer;
+  font-family:inherit;
+  font-size:.82rem;
+}
+
+.sheet-btn:hover{
+  border-color:var(--accent);
+}
+
+.sheet-btn.active{
+  background:var(--accent);
+  border-color:var(--accent);
+  color:white;
+}
+
+.manual{
+  display:none;
+  margin-left:auto;
+  font-size:.8rem;
+  color:var(--muted);
+}
+
+.manual.show{
+  display:inline-block;
+}
+
+.table-wrap{
+  overflow:auto;
+  max-height:75vh;
+}
+
+table{
+  width:100%;
+  border-collapse:collapse;
+  font-size:.84rem;
+  white-space:nowrap;
+}
+
+th,td{
+  border-bottom:1px solid var(--border);
+  border-right:1px solid var(--border);
+  padding:10px 12px;
+  text-align:left;
+}
+
+th{
+  position:sticky;
+  top:0;
+  z-index:2;
+  background:#f7f8fa;
+  font-weight:600;
+}
+
+td a{
+  color:var(--accent);
+  text-decoration:underline;
+}
+
+tr:last-child td{
+  border-bottom:0;
+}
+
+th:last-child,
+td:last-child{
+  border-right:0;
+}
+
+.empty{
+  padding:30px;
+  color:var(--muted);
+  text-align:center;
+}
+
+.error{
+  padding:30px;
+  color:#d64545;
+  line-height:1.6;
+  white-space:pre-wrap;
+}
+</style>
+</head>
+
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>논문 작업 현황</h1>
+    <div class="status" id="status">Excel 불러오는 중...</div>
+  </header>
+
+  <section class="panel">
+    <div class="toolbar">
+      <div id="sheetTabs"></div>
+
+      <!-- 자동 불러오기가 안 될 때(로컬 file:// 등)만 보이는 수동 선택 -->
+      <label class="manual" id="manualBox">
+        직접 선택:
+        <input type="file" id="excelFile" accept=".xlsx,.xls">
+      </label>
+    </div>
+
+    <div class="table-wrap">
+      <table id="excelTable"></table>
+      <div class="empty" id="empty" style="display:none;">
+        표시할 데이터가 없습니다.
+      </div>
+      <div class="error" id="error" style="display:none;"></div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+/*
+ * GitHub Repository 구조
+ *
+ * /
+ * ├─ index.html
+ * └─ excel/
+ *    └─ paper_progress_ripository_linked.xlsx
+ *
+ * 페이지가 열리면 위 엑셀을 자동으로 읽습니다.
+ * (GitHub Pages / Cloudflare Pages 등 http(s)로 배포된 상태에서 동작)
+ * 엑셀을 수정해서 저장소에 올리면, 새로고침만으로 최신 내용이 반영됩니다.
+ */
+const EXCEL_PATH = "excel/paper_progress_ripository_linked.xlsx";
+
+let workbook = null;
+
+const statusEl = document.getElementById("status");
+const errorEl  = document.getElementById("error");
+const emptyEl  = document.getElementById("empty");
+const manualBox = document.getElementById("manualBox");
+
+function showError(message){
+  errorEl.style.display = "block";
+  errorEl.textContent = message;
+}
+
+function openWorkbook(buffer, label){
+  workbook = XLSX.read(buffer, {
+    type: "array",
+    cellDates: true
+  });
+
+  statusEl.textContent =
+    label + " · " + workbook.SheetNames.length + "개 시트";
+
+  renderSheetTabs();
+
+  if(workbook.SheetNames.length > 0){
+    renderSheet(workbook.SheetNames[0]);
+  }
+}
+
+/* ===== 1) 저장소의 엑셀 자동 불러오기 ===== */
+async function loadFromRepo(){
+  errorEl.style.display = "none";
+  emptyEl.style.display = "none";
+  statusEl.textContent = "Excel 불러오는 중...";
+
+  try{
+    // 캐시 때문에 예전 파일이 보이지 않도록 매번 새로 요청
+    const url = EXCEL_PATH + "?v=" + Date.now();
+    const res = await fetch(url, { cache: "no-store" });
+
+    if(!res.ok){
+      throw new Error("HTTP " + res.status + " — " + EXCEL_PATH + " 를 찾을 수 없습니다.");
+    }
+
+    const buffer = await res.arrayBuffer();
+    openWorkbook(buffer, EXCEL_PATH.split("/").pop());
+
+  }catch(err){
+    statusEl.textContent = "자동 불러오기 실패";
+    manualBox.classList.add("show");
+
+    const isLocal = location.protocol === "file:";
+    showError(
+      (isLocal
+        ? "로컬 파일(file://)로 열어서 자동 불러오기가 막혔습니다.\n" +
+          "GitHub Pages 등으로 배포된 주소에서는 자동으로 읽힙니다.\n" +
+          "지금은 오른쪽 위 '직접 선택'으로 엑셀 파일을 골라 확인할 수 있어요.\n\n"
+        : "저장소의 엑셀을 불러오지 못했습니다.\n" +
+          "경로(" + EXCEL_PATH + ")와 파일 이름을 확인해 주세요.\n\n") +
+      "원인: " + err.message
+    );
+  }
+}
+
+/* ===== 2) 수동 선택 (자동이 안 될 때 대비) ===== */
+function loadExcelFile(file){
+  errorEl.style.display = "none";
+  emptyEl.style.display = "none";
+
+  if(!file){
+    return;
+  }
+
+  statusEl.textContent = "Excel 읽는 중...";
+
+  const reader = new FileReader();
+
+  reader.onload = function(e){
+    try{
+      openWorkbook(e.target.result, file.name);
+    }catch(err){
+      statusEl.textContent = "불러오기 실패";
+      showError("Excel 파일을 읽을 수 없습니다.\n\n" + err.message);
+    }
+  };
+
+  reader.onerror = function(){
+    statusEl.textContent = "불러오기 실패";
+    showError("파일을 읽는 중 오류가 발생했습니다.");
+  };
+
+  reader.readAsArrayBuffer(file);
+}
+
+function renderSheetTabs(){
+
+  const tabs = document.getElementById("sheetTabs");
+  tabs.innerHTML = "";
+
+  workbook.SheetNames.forEach((sheetName,index)=>{
+
+    const button = document.createElement("button");
+
+    button.className =
+      "sheet-btn" + (index === 0 ? " active" : "");
+
+    button.textContent = sheetName;
+
+    button.onclick = ()=>{
+
+      document
+        .querySelectorAll(".sheet-btn")
+        .forEach(btn => btn.classList.remove("active"));
+
+      button.classList.add("active");
+
+      renderSheet(sheetName);
+    };
+
+    tabs.appendChild(button);
+  });
+}
+
+/* 셀에 하이퍼링크가 걸려 있으면 그 주소를 돌려줌 */
+function getCellLink(worksheet, r, c){
+  const cell = worksheet[XLSX.utils.encode_cell({ r: r, c: c })];
+  if(cell && cell.l && cell.l.Target){
+    return cell.l.Target;
+  }
+  return "";
+}
+
+function renderSheet(sheetName){
+
+  const table = document.getElementById("excelTable");
+
+  table.innerHTML = "";
+  emptyEl.style.display = "none";
+  errorEl.style.display = "none";
+
+  const worksheet = workbook.Sheets[sheetName];
+
+  const data = XLSX.utils.sheet_to_json(
+    worksheet,
+    {
+      header: 1,
+      defval: "",
+      raw: false
+    }
+  );
+
+  if(!data.length){
+    emptyEl.style.display = "block";
+    return;
+  }
+
+  // 시트 데이터가 시작되는 위치 (하이퍼링크 셀 주소 계산용)
+  const range = XLSX.utils.decode_range(worksheet["!ref"]);
+
+  /*
+   * 첫 번째 행 = Excel의 헤더
+   * 두 번째 행부터 = 데이터
+   */
+  const header = data[0];
+  const rows = data.slice(1);
+
+  const thead = document.createElement("thead");
+  const headerRow = document.createElement("tr");
+
+  header.forEach(value=>{
+
+    const th = document.createElement("th");
+    th.textContent = value;
+    headerRow.appendChild(th);
+
+  });
+
+  thead.appendChild(headerRow);
+  table.appendChild(thead);
+
+
+  const tbody = document.createElement("tbody");
+
+  rows.forEach((row, rowIndex)=>{
+
+    const tr = document.createElement("tr");
+
+    header.forEach((_,index)=>{
+
+      const td = document.createElement("td");
+      const text = row[index] !== undefined ? row[index] : "";
+
+      // 엑셀에서 링크가 걸린 셀은 클릭 가능한 링크로 표시
+      const href = getCellLink(
+        worksheet,
+        range.s.r + 1 + rowIndex,
+        range.s.c + index
+      );
+
+      if(href && /^https?:\/\//i.test(href)){
+        const a = document.createElement("a");
+        a.href = href;
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        a.textContent = text || href;
+        td.appendChild(a);
+      }else{
+        td.textContent = text;
+      }
+
+      tr.appendChild(td);
+
+    });
+
+    tbody.appendChild(tr);
+  });
+
+  table.appendChild(tbody);
+}
+
+
+document
+  .getElementById("excelFile")
+  .addEventListener("change", function(e){
+    loadExcelFile(e.target.files[0]);
+  });
+
+// 페이지가 열리면 바로 저장소의 엑셀을 읽음
+loadFromRepo();
+</script>
+
+</body>
+</html>
