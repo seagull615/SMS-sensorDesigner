@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>트랜지스터 LED 제어 (HIGH / LOW)</title>
+<style>
+:root{--bg:#e8eef3;--ink:#16314a;--mute:#5d7488;--line:#b9c8d4;--card:#f6f9fb;--ok:#1f7a5a;--bad:#c2413b;--led:#ff4d3d}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 "Pretendard","Noto Sans KR",system-ui,sans-serif;padding:24px 16px 48px}
+main{max-width:760px;margin:0 auto}
+h1{font-size:26px;margin:0 0 4px}
+p.sub{margin:0 0 20px;color:var(--mute)}
+section{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px;margin-bottom:16px}
+h2{font-size:16px;margin:0 0 12px}
+button{font:inherit;color:var(--ink);background:transparent;border:1px solid var(--ink);border-radius:6px;padding:7px 14px;cursor:pointer}
+button:hover:not(:disabled){background:var(--ink);color:var(--bg)}
+button:focus-visible{outline:3px solid #3b8bd9;outline-offset:2px}
+button:disabled{opacity:.4;cursor:not-allowed}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+#status{font-weight:600}
+#status.on{color:var(--ok)}#status.off{color:var(--bad)}
+.ctrl{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.big{font-size:22px;font-weight:700;padding:16px 36px;min-width:140px}
+.led{width:56px;height:56px;border-radius:50%;border:2px solid var(--ink);background:transparent;transition:.15s}
+.led.on{background:var(--led);box-shadow:0 0 22px var(--led);border-color:var(--led)}
+.state{font-size:18px;font-weight:700}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{border:1px solid var(--line);padding:6px 10px;text-align:left}
+th{background:var(--bg);font-weight:600}
+pre{margin:0;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:12px;overflow-x:auto;font:13px/1.5 ui-monospace,Consolas,monospace;max-height:320px}
+#log{height:130px;overflow:auto;white-space:pre-wrap}
+.note{font-size:13px;color:var(--mute);margin:8px 0 0}
+</style>
+</head>
+<body>
+<main>
+<h1>트랜지스터 LED 제어</h1>
+<p class="sub">브라우저에서 13번 핀을 HIGH / LOW로 바꿔 트랜지스터 스위치를 켜고 끕니다. Chrome·Edge 필요.</p>
+
+<section>
+  <h2>1. 연결</h2>
+  <div class="row">
+    <button id="connect">아두이노 연결</button>
+    <button id="disconnect" disabled>연결 해제</button>
+    <span id="status" class="off">연결 안 됨</span>
+  </div>
+  <p class="note">먼저 아래 4번의 스케치를 보드에 업로드하세요. 업로드할 때는 Arduino IDE의 시리얼 모니터를 닫아 둬야 포트가 열립니다.</p>
+</section>
+
+<section>
+  <h2>2. 회로 (C1815, NPN)</h2>
+  <p class="note" style="margin:0 0 10px">트랜지스터는 글자가 있는 평평한 면을 나를 향하게 하고 다리를 아래로 둔 상태에서 왼쪽부터 <b>E - C - B</b>.</p>
+  <table>
+    <tr><th>#</th><th>시작</th><th>부품</th><th>끝</th></tr>
+    <tr><td>①</td><td>아두이노 5V</td><td>220Ω 저항</td><td>LED 긴 다리(+)</td></tr>
+    <tr><td>②</td><td>LED 짧은 다리(-)</td><td>직접 연결</td><td>트랜지스터 C (가운데)</td></tr>
+    <tr><td>③</td><td>트랜지스터 E (왼쪽)</td><td>직접 연결</td><td>아두이노 GND</td></tr>
+    <tr><td>④</td><td>아두이노 13번 핀</td><td>1kΩ 저항</td><td>트랜지스터 B (오른쪽)</td></tr>
+  </table>
+  <p class="note">전류 길: 5V → 220Ω → LED → C → E → GND. 신호선: 13번 핀 → 1kΩ → B.</p>
+</section>
+
+<section>
+  <h2>3. HIGH / LOW 제어</h2>
+  <div class="ctrl">
+    <button id="high" class="big" disabled>HIGH</button>
+    <button id="low" class="big" disabled>LOW</button>
+    <div class="led" id="led" aria-hidden="true"></div>
+    <div class="state" id="state">LOW (꺼짐)</div>
+  </div>
+  <p class="note">HIGH = 13번 핀 5V → 베이스에 전류 → 트랜지스터 ON → LED 켜짐. LOW = 0V → 트랜지스터 OFF → LED 꺼짐.</p>
+  <pre id="log" style="margin-top:10px">대기 중…</pre>
+</section>
+
+<section>
+  <h2>4. 보드에 올릴 스케치</h2>
+  <div class="row" style="margin-bottom:10px"><button id="copy">스케치 복사</button></div>
+<pre id="sketch">#define LED_PIN 13
+
+String line;
+
+void setup() {
+  Serial.begin(9600);
+  pinMode(LED_PIN, OUTPUT);
+  digitalWrite(LED_PIN, LOW);
+}
+
+void loop() {
+  while (Serial.available()) {
+    char c = Serial.read();
+    if (c == '\n') { handle(line); line = ""; }
+    else if (c != '\r') line += c;
+  }
+}
+
+void handle(String s) {
+  if (s == "H") {                     // HIGH
+    digitalWrite(LED_PIN, HIGH);
+    Serial.println("OK HIGH");
+  } else if (s == "L") {              // LOW
+    digitalWrite(LED_PIN, LOW);
+    Serial.println("OK LOW");
+  }
+}</pre>
+</section>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+let port, writer, reader, keepReading = false;
+
+function log(s){ const l=$('log'); if(l.textContent==='대기 중…') l.textContent=''; l.textContent += s + '\n'; l.scrollTop = l.scrollHeight; }
+function showState(high){
+  $('led').classList.toggle('on', high);
+  $('state').textContent = high ? 'HIGH (켜짐)' : 'LOW (꺼짐)';
+}
+function setUI(on){
+  $('status').textContent = on ? '연결됨' : '연결 안 됨';
+  $('status').className = on ? 'on' : 'off';
+  $('connect').disabled = on; $('disconnect').disabled = !on;
+  $('high').disabled = !on; $('low').disabled = !on;
+  if(!on) showState(false);
+}
+async function send(cmd){
+  if(!writer) return;
+  try{ await writer.write(cmd + '\n'); }catch(e){ log('전송 실패: ' + e.message); }
+}
+async function readLoop(){
+  const dec = new TextDecoderStream();
+  const closed = port.readable.pipeTo(dec.writable).catch(()=>{});
+  reader = dec.readable.getReader();
+  let buf = '';
+  try{
+    while(keepReading){
+      const {value, done} = await reader.read();
+      if(done) break;
+      buf += value;
+      let i;
+      while((i = buf.indexOf('\n')) >= 0){ const ln = buf.slice(0,i).trim(); buf = buf.slice(i+1); if(ln) log('← ' + ln); }
+    }
+  }catch(e){ log('읽기 중단: ' + e.message); }
+  finally{ reader.releaseLock(); await closed; }
+}
+$('connect').onclick = async () => {
+  if(!('serial' in navigator)){ alert('이 브라우저는 Web Serial을 지원하지 않습니다. Chrome 또는 Edge를 사용하고, 주소가 https여야 합니다.'); return; }
+  try{
+    port = await navigator.serial.requestPort();
+    await port.open({baudRate: 9600});
+    const enc = new TextEncoderStream();
+    enc.readable.pipeTo(port.writable);
+    writer = enc.writable.getWriter();
+    keepReading = true; setUI(true); log('연결됨 (9600 baud)');
+    readLoop();
+  }catch(e){ log('연결 실패: ' + e.message); }
+};
+$('disconnect').onclick = async () => {
+  keepReading = false;
+  try{ await send('L'); }catch(e){}
+  try{ await reader.cancel(); }catch(e){}
+  try{ await writer.close(); }catch(e){}
+  try{ await port.close(); }catch(e){}
+  writer = reader = port = null; setUI(false); log('연결 해제');
+};
+if('serial' in navigator){
+  navigator.serial.addEventListener('disconnect', () => { keepReading=false; writer=reader=port=null; setUI(false); log('보드가 분리되었습니다'); });
+}
+
+$('high').onclick = () => { send('H'); showState(true);  log('→ HIGH'); };
+$('low').onclick  = () => { send('L'); showState(false); log('→ LOW'); };
+
+$('copy').onclick = async () => {
+  try{ await navigator.clipboard.writeText($('sketch').textContent); $('copy').textContent = '복사됨'; setTimeout(()=>$('copy').textContent='스케치 복사',1500); }
+  catch(e){ alert('복사하지 못했습니다. 직접 선택해서 복사하세요.'); }
+};
+</script>
+</body>
+</html>
