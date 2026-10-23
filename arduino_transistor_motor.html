@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>트랜지스터 모터 제어 (ON / OFF + 속도)</title>
+<style>
+:root{--bg:#e8eef3;--ink:#16314a;--mute:#5d7488;--line:#b9c8d4;--card:#f6f9fb;--ok:#1f7a5a;--bad:#c2413b;--acc:#2f7fd1}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 "Pretendard","Noto Sans KR",system-ui,sans-serif;padding:24px 16px 48px}
+main{max-width:760px;margin:0 auto}
+h1{font-size:26px;margin:0 0 4px}
+p.sub{margin:0 0 20px;color:var(--mute)}
+section{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px;margin-bottom:16px}
+h2{font-size:16px;margin:0 0 12px}
+button{font:inherit;color:var(--ink);background:transparent;border:1px solid var(--ink);border-radius:6px;padding:7px 14px;cursor:pointer}
+button:hover:not(:disabled){background:var(--ink);color:var(--bg)}
+button:focus-visible{outline:3px solid #3b8bd9;outline-offset:2px}
+button:disabled{opacity:.4;cursor:not-allowed}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+#status{font-weight:600}
+#status.on{color:var(--ok)}#status.off{color:var(--bad)}
+.ctrl{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.big{font-size:22px;font-weight:700;padding:16px 36px;min-width:140px}
+.motor{width:64px;height:64px;border-radius:50%;border:2px solid var(--ink);position:relative;flex:none}
+.motor::before,.motor::after{content:"";position:absolute;left:50%;top:6px;bottom:6px;width:4px;margin-left:-2px;background:var(--ink);border-radius:2px}
+.motor::after{transform:rotate(90deg)}
+.motor.on{border-color:var(--acc);animation:spin 1s linear infinite}
+.motor.on::before,.motor.on::after{background:var(--acc)}
+@keyframes spin{to{transform:rotate(360deg)}}
+.state{font-size:18px;font-weight:700}
+.speed{margin-top:14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.speed input{flex:1;min-width:180px}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{border:1px solid var(--line);padding:6px 10px;text-align:left}
+th{background:var(--bg);font-weight:600}
+pre{margin:0;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:12px;overflow-x:auto;font:13px/1.5 ui-monospace,Consolas,monospace;max-height:360px}
+#log{height:130px;overflow:auto;white-space:pre-wrap}
+.note{font-size:13px;color:var(--mute);margin:8px 0 0}
+.warn{border-left:4px solid var(--bad);padding-left:10px}
+</style>
+</head>
+<body>
+<main>
+<h1>트랜지스터 모터 제어</h1>
+<p class="sub">브라우저에서 9번 핀(PWM)으로 트랜지스터 스위치를 켜고 끄며 모터 속도를 조절합니다. Chrome·Edge 필요.</p>
+
+<section>
+  <h2>1. 연결</h2>
+  <div class="row">
+    <button id="connect">아두이노 연결</button>
+    <button id="disconnect" disabled>연결 해제</button>
+    <span id="status" class="off">연결 안 됨</span>
+  </div>
+  <p class="note">먼저 아래 4번의 스케치를 보드에 업로드하세요. 업로드할 때는 Arduino IDE의 시리얼 모니터를 닫아 둬야 포트가 열립니다.</p>
+</section>
+
+<section>
+  <h2>2. 회로 (C1815, NPN + 6V 건전지 + 다이오드)</h2>
+  <p class="note" style="margin:0 0 10px">트랜지스터는 글자가 있는 평평한 면을 나를 향하게 하고 다리를 아래로 둔 상태에서 왼쪽부터 <b>E - C - B</b>.</p>
+  <table>
+    <tr><th>#</th><th>시작</th><th>부품</th><th>끝</th></tr>
+    <tr><td>①</td><td>건전지 6V (+)</td><td>직접 연결</td><td>모터 한쪽 단자</td></tr>
+    <tr><td>②</td><td>모터 다른 쪽 단자</td><td>직접 연결</td><td>트랜지스터 C (가운데)</td></tr>
+    <tr><td>③</td><td>트랜지스터 E (왼쪽)</td><td>직접 연결</td><td>건전지 (−)</td></tr>
+    <tr><td>④</td><td>건전지 (−)</td><td>직접 연결</td><td>아두이노 GND</td></tr>
+    <tr><td>⑤</td><td>아두이노 9번 핀</td><td>1kΩ 저항</td><td>트랜지스터 B (오른쪽)</td></tr>
+    <tr><td>⑥</td><td>다이오드 줄무늬(캐소드)</td><td>모터와 <b>병렬</b></td><td>줄무늬 → 건전지 (+) 쪽, 반대쪽 → 트랜지스터 C 쪽</td></tr>
+  </table>
+  <p class="note">전류 길: 건전지 (+) → 모터 → C → E → 건전지 (−). 신호선: 9번 핀 → 1kΩ → B. 아두이노 5V 선은 쓰지 않습니다.</p>
+  <p class="note warn"><b>다이오드 방향</b>: 줄무늬가 건전지 (+) 쪽이어야 합니다. 반대로 달면 합선됩니다. <b>GND 공통 연결(④)</b>을 빼먹으면 동작하지 않습니다.</p>
+  <p class="note warn"><b>3V 모터에 6V</b>는 과전압이라 속도를 약 50% 이하로 두고 쓰세요. C1815는 최대 약 150mA이므로 모터가 힘이 약하거나 트랜지스터가 뜨거우면 더 큰 트랜지스터(TIP120, 2N2222 등)로 바꾸세요.</p>
+</section>
+
+<section>
+  <h2>3. 모터 제어</h2>
+  <div class="ctrl">
+    <button id="on" class="big" disabled>ON</button>
+    <button id="off" class="big" disabled>OFF</button>
+    <div class="motor" id="motor" aria-hidden="true"></div>
+    <div class="state" id="state">OFF (정지)</div>
+  </div>
+  <div class="speed">
+    <label for="spd"><b>속도</b></label>
+    <input id="spd" type="range" min="0" max="100" value="50" disabled>
+    <b id="spdVal">50%</b>
+  </div>
+  <p class="note">ON = 9번 핀에 PWM 출력 → 트랜지스터가 빠르게 켜졌다 꺼지며 모터 평균 전압이 속도 값에 비례. OFF = 0V → 트랜지스터 OFF → 모터 정지. 슬라이더는 모터가 켜진 상태에서 바로 반영됩니다.</p>
+  <pre id="log" style="margin-top:10px">대기 중…</pre>
+</section>
+
+<section>
+  <h2>4. 보드에 올릴 스케치</h2>
+  <div class="row" style="margin-bottom:10px"><button id="copy">스케치 복사</button></div>
+<pre id="sketch">#define MOTOR_PIN 9   // PWM 핀 (우노: 3, 5, 6, 9, 10, 11)
+
+String line;
+
+void setup() {
+  Serial.begin(9600);
+  pinMode(MOTOR_PIN, OUTPUT);
+  analogWrite(MOTOR_PIN, 0);
+}
+
+void loop() {
+  while (Serial.available()) {
+    char c = Serial.read();
+    if (c == '\n') { handle(line); line = ""; }
+    else if (c != '\r') line += c;
+  }
+}
+
+void handle(String s) {
+  if (s == "L") {                     // 정지
+    analogWrite(MOTOR_PIN, 0);
+    Serial.println("OK STOP");
+  } else if (s.startsWith("P")) {     // P0 ~ P255 : PWM 듀티
+    int v = constrain(s.substring(1).toInt(), 0, 255);
+    analogWrite(MOTOR_PIN, v);
+    Serial.print("OK PWM ");
+    Serial.println(v);
+  }
+}</pre>
+</section>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+let port, writer, reader, keepReading = false, running = false;
+
+function log(s){ const l=$('log'); if(l.textContent==='대기 중…') l.textContent=''; l.textContent += s + '\n'; l.scrollTop = l.scrollHeight; }
+function pct(){ return +$('spd').value; }
+function pwm(){ return Math.round(pct() * 255 / 100); }
+function showState(on){
+  running = on;
+  $('motor').classList.toggle('on', on);
+  if(on) $('motor').style.animationDuration = (2.2 - 2.0 * pct()/100) + 's';
+  $('state').textContent = on ? 'ON (' + pct() + '%)' : 'OFF (정지)';
+}
+function setUI(on){
+  $('status').textContent = on ? '연결됨' : '연결 안 됨';
+  $('status').className = on ? 'on' : 'off';
+  $('connect').disabled = on; $('disconnect').disabled = !on;
+  $('on').disabled = !on; $('off').disabled = !on; $('spd').disabled = !on;
+  if(!on) showState(false);
+}
+async function send(cmd){
+  if(!writer) return;
+  try{ await writer.write(cmd + '\n'); }catch(e){ log('전송 실패: ' + e.message); }
+}
+async function readLoop(){
+  const dec = new TextDecoderStream();
+  const closed = port.readable.pipeTo(dec.writable).catch(()=>{});
+  reader = dec.readable.getReader();
+  let buf = '';
+  try{
+    while(keepReading){
+      const {value, done} = await reader.read();
+      if(done) break;
+      buf += value;
+      let i;
+      while((i = buf.indexOf('\n')) >= 0){ const ln = buf.slice(0,i).trim(); buf = buf.slice(i+1); if(ln) log('← ' + ln); }
+    }
+  }catch(e){ log('읽기 중단: ' + e.message); }
+  finally{ reader.releaseLock(); await closed; }
+}
+$('connect').onclick = async () => {
+  if(!('serial' in navigator)){ alert('이 브라우저는 Web Serial을 지원하지 않습니다. Chrome 또는 Edge를 사용하고, 주소가 https여야 합니다.'); return; }
+  try{
+    port = await navigator.serial.requestPort();
+    await port.open({baudRate: 9600});
+    const enc = new TextEncoderStream();
+    enc.readable.pipeTo(port.writable);
+    writer = enc.writable.getWriter();
+    keepReading = true; setUI(true); log('연결됨 (9600 baud)');
+    readLoop();
+  }catch(e){ log('연결 실패: ' + e.message); }
+};
+$('disconnect').onclick = async () => {
+  keepReading = false;
+  try{ await send('L'); }catch(e){}
+  try{ await reader.cancel(); }catch(e){}
+  try{ await writer.close(); }catch(e){}
+  try{ await port.close(); }catch(e){}
+  writer = reader = port = null; setUI(false); log('연결 해제');
+};
+if('serial' in navigator){
+  navigator.serial.addEventListener('disconnect', () => { keepReading=false; writer=reader=port=null; setUI(false); log('보드가 분리되었습니다'); });
+}
+
+$('on').onclick  = () => { send('P' + pwm()); showState(true);  log('→ ON ' + pct() + '% (PWM ' + pwm() + ')'); };
+$('off').onclick = () => { send('L');         showState(false); log('→ OFF'); };
+$('spd').oninput = () => {
+  $('spdVal').textContent = pct() + '%';
+  if(running){ send('P' + pwm()); showState(true); }
+};
+
+$('copy').onclick = async () => {
+  try{ await navigator.clipboard.writeText($('sketch').textContent); $('copy').textContent = '복사됨'; setTimeout(()=>$('copy').textContent='스케치 복사',1500); }
+  catch(e){ alert('복사하지 못했습니다. 직접 선택해서 복사하세요.'); }
+};
+</script>
+</body>
+</html>
