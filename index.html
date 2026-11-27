@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>실험실</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
 <style>
   :root{
     color-scheme:light;
@@ -199,6 +202,40 @@
     }
   }
 
+
+  /* 학생용 수학문제 탭 (페이지 안에 직접 작성) */
+  .pane-html{position:absolute;inset:0;display:none;overflow:auto;background:var(--bg);}
+  .pane-html.active{display:block;}
+  .calc-wrap{max-width:860px;margin:0 auto;padding:20px 16px 40px;}
+  .calc-wrap h2{font-size:1.15rem;margin:0 0 6px;letter-spacing:-0.01em;}
+  .unit-note{background:rgba(15,157,135,0.08);border:1px solid var(--panel-border);border-radius:10px;padding:10px 14px;font-size:0.86rem;color:var(--muted);margin:10px 0 18px;line-height:1.6;}
+  .unit-note b{color:var(--text);}
+  .carousel-row{display:flex;align-items:center;gap:8px;}
+  .car-btn{flex:none;width:40px;height:40px;border-radius:50%;border:1px solid var(--panel-border);background:var(--panel);color:var(--text);font-size:1.1rem;cursor:pointer;}
+  .car-btn:hover{border-color:var(--accent);color:var(--accent);}
+  .car-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+  .carousel{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;padding:6px 2px 10px;flex:1;scrollbar-width:thin;}
+  .pcard{flex:0 0 240px;scroll-snap-align:start;text-align:left;background:var(--panel);border:1px solid var(--panel-border);border-radius:14px;padding:16px;min-height:150px;cursor:pointer;font-family:var(--sans);color:var(--text);display:flex;flex-direction:column;gap:8px;}
+  .pcard:hover{border-color:var(--accent);}
+  .pcard:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+  .pcard .no{font-size:0.78rem;font-weight:700;color:var(--accent);}
+  .pcard .ttl{font-size:1rem;font-weight:600;line-height:1.4;}
+  .pcard .sub{font-size:0.82rem;color:var(--muted);line-height:1.5;}
+  .detail{display:none;}
+  .detail.show{display:block;}
+  .back-btn{appearance:none;background:transparent;border:1px solid var(--panel-border);border-radius:8px;padding:0 12px;min-height:36px;font-family:var(--sans);font-size:0.85rem;color:var(--muted);cursor:pointer;margin-bottom:14px;}
+  .back-btn:hover{color:var(--text);border-color:var(--accent);}
+  .qbox{background:var(--panel);border:1px solid var(--panel-border);border-radius:14px;padding:20px;line-height:1.75;font-size:1rem;}
+  .qbox .no{font-size:0.8rem;font-weight:700;color:var(--accent);margin-bottom:6px;}
+  .qbox .math{font-size:1.15rem;text-align:center;margin:14px 0;padding:12px;background:var(--bg);border-radius:10px;}
+  .qbox .ana{font-weight:700;color:var(--accent);}
+  .reveal-btn{appearance:none;margin-top:14px;background:var(--accent);color:#fff;border:none;border-radius:8px;padding:0 16px;min-height:42px;font-family:var(--sans);font-size:0.9rem;font-weight:600;cursor:pointer;}
+  .reveal-btn.ghost{background:transparent;color:var(--accent);border:1px solid var(--accent);margin-right:8px;}
+  .reveal{display:none;margin-top:14px;padding:14px 16px;border-radius:10px;background:rgba(15,157,135,0.08);border:1px solid var(--panel-border);font-size:0.94rem;line-height:1.75;}
+  .reveal.show{display:block;}
+  .reveal ol{margin:6px 0 6px 18px;padding:0;}
+  .reveal code{background:var(--panel);border:1px solid var(--panel-border);border-radius:4px;padding:1px 5px;font-size:0.88em;}
+
   .panes{
     flex:1;
     position:relative;
@@ -224,6 +261,7 @@
       <button class="cat" data-cat="control" role="tab" aria-selected="false">제어공학</button>
       <button class="cat" data-cat="arduino" role="tab" aria-selected="false">아두이노 및 외부기기</button>
       <button class="cat" data-cat="misc" role="tab" aria-selected="false">기타</button>
+      <button class="cat" data-cat="student" role="tab" aria-selected="false">학생용 수학</button>
     </div>
     <button class="menu-btn" id="menuBtn" aria-expanded="false" aria-controls="tabList">
       <span class="label" id="menuLabel">SMS</span>
@@ -245,6 +283,7 @@
       <button class="tab" data-cat="arduino" data-target="frame-arduino" role="tab" aria-selected="false">아두이노 시리얼</button>
       <button class="tab" data-cat="arduino" data-target="frame-arduino-led" role="tab" aria-selected="false">트랜지스터 LED</button>
       <button class="tab" data-cat="arduino" data-target="frame-arduino-motor" role="tab" aria-selected="false">트랜지스터 모터</button>
+      <button class="tab" data-cat="student" data-target="frame-calc" role="tab" aria-selected="false">공학계산기 수학문제</button>
     </div>
   </div>
 
@@ -269,6 +308,21 @@
     <iframe id="frame-arduino" src="arduino_serial.html" title="아두이노 시리얼" allow="serial" loading="lazy"></iframe>
     <iframe id="frame-arduino-led" src="arduino_transistor_led_highlow.html" title="트랜지스터 LED" allow="serial" loading="lazy"></iframe>
     <iframe id="frame-arduino-motor" src="arduino_transistor_motor.html" title="트랜지스터 모터" allow="serial" loading="lazy"></iframe>
+    <!-- 공학계산기 수학문제: 내용은 아래 <script>의 PROBLEMS 배열에 문제를 추가하면 카드가 늘어남 -->
+    <div id="frame-calc" class="pane-html">
+      <div class="calc-wrap">
+        <div id="calcList">
+          <h2>공학계산기를 사용한 수학문제</h2>
+          <div class="unit-note">이 탭에서만 쓰는 단위 <b>아나</b>는 '하나'에서 온 말로, 그냥 <b>1 unit</b>을 뜻해요. (예: 30 아나 = 30 unit)</div>
+          <div class="carousel-row">
+            <button class="car-btn" id="carPrev" aria-label="이전 카드">&#9664;</button>
+            <div class="carousel" id="carousel"></div>
+            <button class="car-btn" id="carNext" aria-label="다음 카드">&#9654;</button>
+          </div>
+        </div>
+        <div class="detail" id="calcDetail"></div>
+      </div>
+    </div>
   </div>
 
 <script>
@@ -301,7 +355,7 @@
 
   function activateTab(tab){
     tabs.forEach(t => { t.classList.remove('active'); t.setAttribute('aria-selected','false'); });
-    document.querySelectorAll('.panes > iframe, .panes > .placeholder').forEach(f => f.classList.remove('active'));
+    document.querySelectorAll('.panes > iframe, .panes > .placeholder, .panes > .pane-html').forEach(f => f.classList.remove('active'));
     tab.classList.add('active');
     tab.setAttribute('aria-selected','true');
     document.getElementById(tab.dataset.target).classList.add('active');
@@ -334,6 +388,121 @@
       setMenu(false);
     });
   });
+
+  // ===== 공학계산기 수학문제 =====
+  // 문제를 더 만들려면 이 배열에 객체를 추가하면 돼요.
+  const PROBLEMS = [
+    {
+      title: String.raw`\(2.718^{-x}\) 와 \(\mathrm{e}^{-x}\), 어느 쪽이 클까?`,
+      sub: 'x = 30 아나일 때 두 값을 비교해 보세요.',
+      body: String.raw`
+        <p><b>x가 <span class="ana">30 아나</span></b>일 때,</p>
+        <div class="math">\[ 2.718^{-x} \quad \text{vs} \quad \mathrm{e}^{-x} \]</div>
+        <p>두 값 중 <b>어느 쪽이 더 클까요?</b> 공학계산기로 직접 계산해서 확인해 보세요.</p>`,
+      hint: String.raw`<b>힌트</b><br>· \(\mathrm{e}\approx 2.71828\ldots\) 인 수예요. 계산기의 \(\mathrm{e}^{x}\) 키(보통 <code>SHIFT</code> + <code>ln</code>)를 쓰면 돼요.<br>· 값이 아주 작아서 \(\times 10^{-14}\) 꼴로 나와요. 지수 부분까지 꼭 읽으세요.`,
+      answer: String.raw`<b>정답: \(2.718^{-x}\) 쪽이 더 크다.</b>
+        <ol>
+          <li>\(\mathrm{e}^{-30} \approx 9.358\times 10^{-14}\)</li>
+          <li>\(2.718^{-30} \approx 9.387\times 10^{-14}\)</li>
+          <li>비율 \(\dfrac{2.718^{-30}}{\mathrm{e}^{-30}} \approx 1.0031\) → 2.718 쪽이 약 0.3% 더 큼</li>
+        </ol>
+        <b>이유</b><br>
+        2.718은 \(\mathrm{e}=2.71828\ldots\)보다 <b>조금 작은</b> 수예요. 밑이 작을수록 지수가 음수일 때 값은 더 커져요 (\(1/2.718^{x}\) 꼴이라 분모가 더 작아지니까요).
+        식으로 보면
+        \[ 2.718^{-x} = \mathrm{e}^{-x\ln 2.718},\qquad \ln 2.718 \approx 0.99990 < 1 \]
+        이라서 지수가 \(-30\)이 아니라 약 \(-29.9969\)가 돼요. 그래서 \(\mathrm{e}^{-30}\)보다 커져요.<br><br>
+        <b>계산기 팁</b>: 두 값이 거의 같아서 앞자리 "9.3"까지 똑같이 보여요. 이럴 땐 <b>세 번째 자리 이후</b>를 비교하거나, 두 값의 <b>비(나눗셈)</b>를 구하면 확실해요.`
+    },
+    {
+      title: String.raw`\(x\sin^{2}x\) 를 0~30 아나까지 적분`,
+      sub: '손으로 적분한 뒤, 공학계산기로 x=30을 대입해 보세요.',
+      body: String.raw`
+        <p>x가 <span class="ana">0 아나</span>부터 <span class="ana">30 아나</span>까지 움직일 때,</p>
+        <div class="math">\[ \int_{0}^{30} x\,\sin^{2}x \;\mathrm{d}x \]</div>
+        <p><b>1단계</b> 손으로 부정적분 \(F(x)\)를 구하세요.<br>
+        <b>2단계</b> 공학계산기로 \(F(30)-F(0)\)을 계산하세요.<br>
+        <span style="color:var(--muted);font-size:0.9rem">※ 계산기의 <b>x 대입 기능(CALC / 계산)</b>을 쓰는 것을 권장해요. 식을 한 번만 입력하고 x 값만 바꿔 넣을 수 있어서 실수가 줄어요.</span></p>`,
+      hint: String.raw`<b>힌트</b><br>· \(\sin^{2}x=\dfrac{1-\cos 2x}{2}\) 로 바꾸면 적분하기 쉬워져요.<br>· \(x\cos 2x\) 는 <b>부분적분</b>을 쓰세요. (\(u=x,\ \mathrm{d}v=\cos 2x\,\mathrm{d}x\))<br>· 계산기는 반드시 <b>라디안(RAD)</b> 모드로 두세요. 여기서 x의 단위는 각도(°)가 아니라 '아나'예요.`,
+      answer: String.raw`<b>정답:</b>
+        \[ \int_{0}^{30} x\sin^{2}x\,\mathrm{d}x \approx 227.53 \]
+        <p><b>① 손으로 적분</b></p>
+        <ol>
+          <li>반각 공식으로 바꿔요.
+            \[ \int x\sin^{2}x\,\mathrm{d}x=\int\frac{x}{2}\,\mathrm{d}x-\frac12\int x\cos 2x\,\mathrm{d}x \]</li>
+          <li>첫 항: \(\displaystyle\int\frac{x}{2}\,\mathrm{d}x=\frac{x^{2}}{4}\)</li>
+          <li>부분적분:
+            \[ \int x\cos 2x\,\mathrm{d}x=\frac{x\sin 2x}{2}+\frac{\cos 2x}{4} \]</li>
+          <li>따라서
+            \[ F(x)=\frac{x^{2}}{4}-\frac{x\sin 2x}{4}-\frac{\cos 2x}{8} \]</li>
+          <li>검산:
+            \[ F'(x)=\frac{x}{2}-\frac{x\cos 2x}{2}=x\cdot\frac{1-\cos 2x}{2}=x\sin^{2}x\ \checkmark \]</li>
+        </ol>
+        <p><b>② 계산기로 대입</b> (RAD 모드)</p>
+        <ol>
+          <li>계산기에 <code>X²÷4 − X sin(2X)÷4 − cos(2X)÷8</code> 을 입력하고 <code>CALC</code>를 눌러요.</li>
+          <li><b>X = 30</b> 대입 → \(F(30)\approx 227.405\)</li>
+          <li><b>X = 0</b> 대입 → \(F(0)=-\dfrac18=-0.125\)</li>
+          <li>\[ F(30)-F(0)\approx 227.405-(-0.125)=227.53 \]</li>
+        </ol>
+        <p><b>왜 CALC(x 대입)를 권장하나요?</b><br>
+        \(\sin 60,\ \cos 60\) 같은 값을 하나씩 따로 계산해서 옮겨 적으면 부호·자릿수 실수가 생기기 쉬워요. 식을 한 번만 넣고 x만 바꿔 넣으면 같은 식으로 30과 0을 계산할 수 있어서 안전해요.</p>
+        <p><b>⚠ 자주 하는 실수</b><br>
+        계산기가 <b>DEG(도)</b> 모드면 \(\sin 60^{\circ},\ \cos 60^{\circ}\)로 계산돼서 약 218.57 같은 <b>틀린 값</b>이 나와요. \(2x=60\)은 60라디안이에요.<br>
+        <b>검증</b>: 계산기의 정적분 키(\(\int\mathrm{d}x\))로 \(x\sin^{2}x\)를 0~30 구간에 직접 계산해서 같은 값이 나오는지 확인해 보세요.</p>`
+    }
+  ];
+
+  const carousel = document.getElementById('carousel');
+  const calcList = document.getElementById('calcList');
+  const calcDetail = document.getElementById('calcDetail');
+
+  PROBLEMS.forEach((p, i) => {
+    const b = document.createElement('button');
+    b.className = 'pcard';
+    b.innerHTML = '<span class="no">문제 ' + (i+1) + '</span><span class="ttl">' + p.title + '</span><span class="sub">' + p.sub + '</span>';
+    b.addEventListener('click', () => openProblem(i));
+    carousel.appendChild(b);
+  });
+
+  document.getElementById('carPrev').addEventListener('click', () => carousel.scrollBy({left:-260, behavior:'smooth'}));
+  document.getElementById('carNext').addEventListener('click', () => carousel.scrollBy({left:260, behavior:'smooth'}));
+
+  function renderMath(el){
+    if (!window.renderMathInElement) return;
+    renderMathInElement(el, {
+      delimiters: [
+        {left:'\\[', right:'\\]', display:true},
+        {left:'\\(', right:'\\)', display:false}
+      ],
+      throwOnError:false
+    });
+  }
+  window.addEventListener('load', () => renderMath(carousel));
+
+  function openProblem(i){
+    const p = PROBLEMS[i];
+    calcDetail.innerHTML =
+      '<button class="back-btn" id="calcBack">← 문제 목록</button>' +
+      '<div class="qbox"><div class="no">문제 ' + (i+1) + '</div>' + p.body +
+      '<button class="reveal-btn ghost" id="hintBtn">힌트 보기</button>' +
+      '<button class="reveal-btn" id="ansBtn">정답 보기</button>' +
+      '<div class="reveal" id="hintBox">' + p.hint + '</div>' +
+      '<div class="reveal" id="ansBox">' + p.answer + '</div></div>';
+    renderMath(calcDetail);
+    calcList.style.display = 'none';
+    calcDetail.classList.add('show');
+    const toggle = (btn, box, on, off) => btn.addEventListener('click', () => {
+      const s = box.classList.toggle('show');
+      btn.textContent = s ? off : on;
+    });
+    toggle(document.getElementById('hintBtn'), document.getElementById('hintBox'), '힌트 보기', '힌트 숨기기');
+    toggle(document.getElementById('ansBtn'), document.getElementById('ansBox'), '정답 보기', '정답 숨기기');
+    document.getElementById('calcBack').addEventListener('click', () => {
+      calcDetail.classList.remove('show');
+      calcList.style.display = '';
+    });
+    document.getElementById('frame-calc').scrollTop = 0;
+  }
 
   selectCategory('optics');
 </script>
